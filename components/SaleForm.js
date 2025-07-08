@@ -7,6 +7,7 @@ import {
   X,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   FlatList,
@@ -18,9 +19,12 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../contexts/ThemeContext';
 import { supabase } from '../lib/supabase';
 
 export default function SaleForm({ visible, onClose, onSave }) {
+  const { colors } = useTheme();
+  const { t } = useTranslation();
   const [productos, setProductos] = useState([]);
   const [carritoItems, setCarritoItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -46,11 +50,11 @@ export default function SaleForm({ visible, onClose, onSave }) {
       setProductos(data || []);
     } catch (error) {
       Alert.alert(
-        'Error',
-        'No se pudieron cargar los productos: ' + error.message
+        t('common.error'),
+        t('products.loadError') + ': ' + error.message
       );
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (visible) {
@@ -60,27 +64,30 @@ export default function SaleForm({ visible, onClose, onSave }) {
     }
   }, [visible, loadProductos]);
 
-  const agregarAlCarrito = useCallback((producto) => {
-    setCarritoItems((prev) => {
-      const existingItem = prev.find((item) => item.id === producto.id);
-      if (existingItem) {
-        if (existingItem.cantidad >= producto.stock) {
-          Alert.alert(
-            'Stock insuficiente',
-            `Solo hay ${producto.stock} unidades disponibles`
+  const agregarAlCarrito = useCallback(
+    (producto) => {
+      setCarritoItems((prev) => {
+        const existingItem = prev.find((item) => item.id === producto.id);
+        if (existingItem) {
+          if (existingItem.cantidad >= producto.stock) {
+            Alert.alert(
+              t('saleForm.insufficientStock'),
+              t('saleForm.onlyAvailable', { stock: producto.stock })
+            );
+            return prev;
+          }
+          return prev.map((item) =>
+            item.id === producto.id
+              ? { ...item, cantidad: item.cantidad + 1 }
+              : item
           );
-          return prev;
+        } else {
+          return [...prev, { ...producto, cantidad: 1 }];
         }
-        return prev.map((item) =>
-          item.id === producto.id
-            ? { ...item, cantidad: item.cantidad + 1 }
-            : item
-        );
-      } else {
-        return [...prev, { ...producto, cantidad: 1 }];
-      }
-    });
-  }, []);
+      });
+    },
+    [t]
+  );
 
   const eliminarDelCarrito = useCallback((productoId) => {
     setCarritoItems((prev) => prev.filter((item) => item.id !== productoId));
@@ -120,7 +127,7 @@ export default function SaleForm({ visible, onClose, onSave }) {
 
   const procesarVenta = async () => {
     if (carritoItems.length === 0) {
-      Alert.alert('Error', 'Agrega al menos un producto al carrito');
+      Alert.alert(t('common.error'), t('saleForm.addAtLeastOne'));
       return;
     }
 
@@ -165,11 +172,14 @@ export default function SaleForm({ visible, onClose, onSave }) {
         if (stockError) throw stockError;
       }
 
-      Alert.alert('Éxito', 'Venta registrada correctamente');
+      Alert.alert(t('common.success'), t('sales.processSuccess'));
       onSave();
       onClose();
     } catch (error) {
-      Alert.alert('Error', 'No se pudo procesar la venta: ' + error.message);
+      Alert.alert(
+        t('common.error'),
+        t('sales.processError') + ': ' + error.message
+      );
     } finally {
       setLoading(false);
     }
@@ -185,64 +195,97 @@ export default function SaleForm({ visible, onClose, onSave }) {
 
       return (
         <TouchableOpacity
-          style={[styles.productCard, enCarrito && styles.productCardSelected]}
+          style={[
+            styles.productCard,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            enCarrito && {
+              borderColor: colors.primary,
+              backgroundColor: colors.primaryLight,
+            },
+          ]}
           onPress={() => agregarAlCarrito(item)}
         >
           <View style={styles.productInfo}>
-            <Text style={styles.productName}>{item.nombre}</Text>
-            <Text style={styles.productCategory}>
+            <Text style={[styles.productName, { color: colors.text }]}>
+              {item.nombre}
+            </Text>
+            <Text
+              style={[styles.productCategory, { color: colors.textSecondary }]}
+            >
               {item.categorias?.nombre}
             </Text>
-            <Text style={styles.productPrice}>${item.precio}</Text>
-            <Text style={styles.productStock}>Stock: {item.stock}</Text>
+            <Text style={[styles.productPrice, { color: colors.success }]}>
+              ${item.precio}
+            </Text>
+            <Text style={[styles.productStock, { color: colors.textTertiary }]}>
+              Stock: {item.stock}
+            </Text>
           </View>
           {enCarrito && (
-            <View style={styles.cantidadBadge}>
+            <View
+              style={[
+                styles.cantidadBadge,
+                { backgroundColor: colors.primary },
+              ]}
+            >
               <Text style={styles.cantidadBadgeText}>{enCarrito.cantidad}</Text>
             </View>
           )}
         </TouchableOpacity>
       );
     },
-    [carritoItems, agregarAlCarrito]
+    [carritoItems, agregarAlCarrito, colors]
   );
 
   const renderCarritoItem = useCallback(
     ({ item }) => (
-      <View style={styles.carritoItem}>
+      <View style={[styles.carritoItem, { borderBottomColor: colors.border }]}>
         <View style={styles.carritoInfo}>
-          <Text style={styles.carritoName}>{item.nombre}</Text>
-          <Text style={styles.carritoPrice}>
+          <Text style={[styles.carritoName, { color: colors.text }]}>
+            {item.nombre}
+          </Text>
+          <Text style={[styles.carritoPrice, { color: colors.textSecondary }]}>
             ${item.precio} x {item.cantidad}
           </Text>
-          <Text style={styles.carritoSubtotal}>
+          <Text style={[styles.carritoSubtotal, { color: colors.success }]}>
             ${(item.precio * item.cantidad).toFixed(2)}
           </Text>
         </View>
         <View style={styles.carritoControls}>
           <TouchableOpacity
-            style={styles.controlButton}
+            style={[
+              styles.controlButton,
+              { backgroundColor: colors.background },
+            ]}
             onPress={() => actualizarCantidad(item.id, item.cantidad - 1)}
           >
-            <Minus size={16} color="#6b7280" />
+            <Minus size={16} color={colors.textSecondary} />
           </TouchableOpacity>
-          <Text style={styles.cantidadText}>{item.cantidad}</Text>
+          <Text style={[styles.cantidadText, { color: colors.text }]}>
+            {item.cantidad}
+          </Text>
           <TouchableOpacity
-            style={styles.controlButton}
+            style={[
+              styles.controlButton,
+              { backgroundColor: colors.background },
+            ]}
             onPress={() => actualizarCantidad(item.id, item.cantidad + 1)}
           >
-            <Plus size={16} color="#6b7280" />
+            <Plus size={16} color={colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.deleteButton}
+            style={[
+              styles.deleteButton,
+              { backgroundColor: colors.errorLight },
+            ]}
             onPress={() => eliminarDelCarrito(item.id)}
           >
-            <Trash2 size={16} color="#DC2626" />
+            <Trash2 size={16} color={colors.error} />
           </TouchableOpacity>
         </View>
       </View>
     ),
-    [actualizarCantidad, eliminarDelCarrito]
+    [actualizarCantidad, eliminarDelCarrito, colors]
   );
 
   return (
@@ -252,24 +295,52 @@ export default function SaleForm({ visible, onClose, onSave }) {
       presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
-      <View style={styles.container}>
-        <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View
+          style={[
+            styles.header,
+            {
+              paddingTop: insets.top + 4,
+              backgroundColor: colors.surface,
+              borderBottomColor: colors.border,
+            },
+          ]}
+        >
           <View style={styles.titleContainer}>
-            <ShoppingCart size={24} color="#2563EB" />
-            <Text style={styles.title}>Nueva Venta</Text>
+            <ShoppingCart size={24} color={colors.secondary} />
+            <Text style={[styles.title, { color: colors.text }]}>
+              {t('saleForm.newSale')}
+            </Text>
           </View>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <X size={24} color="#6b7280" />
+            <X size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
 
-        <View style={styles.searchSection}>
+        <View
+          style={[
+            styles.searchSection,
+            {
+              backgroundColor: colors.surface,
+              borderBottomColor: colors.border,
+            },
+          ]}
+        >
           <View style={styles.searchContainer}>
-            <Text style={styles.sectionTitle}>Productos Disponibles</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {t('saleForm.availableProducts')}
+            </Text>
             <TextInput
-              style={styles.searchInput}
-              placeholder="Buscar productos..."
-              placeholderTextColor="#9ca3af"
+              style={[
+                styles.searchInput,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+              ]}
+              placeholder={t('products.searchProducts')}
+              placeholderTextColor={colors.textTertiary}
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoCorrect={false}
@@ -290,9 +361,18 @@ export default function SaleForm({ visible, onClose, onSave }) {
             />
           </View>
 
-          <View style={styles.carritoSection}>
-            <Text style={styles.sectionTitle}>
-              Carrito ({carritoItems.length} productos)
+          <View
+            style={[
+              styles.carritoSection,
+              {
+                backgroundColor: colors.surface,
+                borderLeftColor: colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {t('saleForm.cart')} ({carritoItems.length}{' '}
+              {t('saleForm.cartProducts')})
             </Text>
             {carritoItems.length > 0 ? (
               <>
@@ -303,31 +383,47 @@ export default function SaleForm({ visible, onClose, onSave }) {
                   style={styles.carritoList}
                   showsVerticalScrollIndicator={false}
                 />
-                <View style={styles.totalContainer}>
-                  <Text style={styles.totalText}>
-                    Total: ${calcularTotal().toFixed(2)}
+                <View
+                  style={[
+                    styles.totalContainer,
+                    { borderTopColor: colors.border },
+                  ]}
+                >
+                  <Text style={[styles.totalText, { color: colors.text }]}>
+                    {t('common.total')}: ${calcularTotal().toFixed(2)}
                   </Text>
                 </View>
               </>
             ) : (
-              <Text style={styles.carritoEmpty}>El carrito está vacío</Text>
+              <Text
+                style={[styles.carritoEmpty, { color: colors.textTertiary }]}
+              >
+                {t('saleForm.emptyCart')}
+              </Text>
             )}
           </View>
         </View>
 
-        <View style={styles.footer}>
+        <View
+          style={[
+            styles.footer,
+            { backgroundColor: colors.surface, borderTopColor: colors.border },
+          ]}
+        >
           <TouchableOpacity
             style={[
               styles.ventaButton,
-              (carritoItems.length === 0 || loading) &&
-                styles.ventaButtonDisabled,
+              { backgroundColor: colors.success },
+              (carritoItems.length === 0 || loading) && {
+                backgroundColor: colors.textTertiary,
+              },
             ]}
             onPress={procesarVenta}
             disabled={carritoItems.length === 0 || loading}
           >
             <Save size={20} color="#ffffff" />
             <Text style={styles.ventaButtonText}>
-              {loading ? 'Procesando...' : 'Procesar Venta'}
+              {loading ? t('sales.processing') : t('saleForm.processSale')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -339,7 +435,6 @@ export default function SaleForm({ visible, onClose, onSave }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
   },
   header: {
     flexDirection: 'row',
@@ -347,9 +442,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 20,
-    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
   },
   titleContainer: {
     flexDirection: 'row',
@@ -359,17 +452,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#111827',
   },
   closeButton: {
     padding: 4,
   },
   searchSection: {
-    backgroundColor: '#ffffff',
     paddingHorizontal: 16,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
   },
   searchContainer: {
     gap: 16,
@@ -385,42 +475,31 @@ const styles = StyleSheet.create({
   carritoSection: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#ffffff',
     borderLeftWidth: 1,
-    borderLeftColor: '#e5e7eb',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
     marginBottom: 16,
   },
   searchInput: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#ffffff',
     marginBottom: 16,
   },
   productosList: {
     flex: 1,
   },
   productCard: {
-    backgroundColor: '#ffffff',
     borderRadius: 8,
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  productCardSelected: {
-    borderColor: '#2563EB',
-    backgroundColor: '#eff6ff',
   },
   productInfo: {
     flex: 1,
@@ -428,26 +507,21 @@ const styles = StyleSheet.create({
   productName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
   },
   productCategory: {
     fontSize: 12,
-    color: '#6b7280',
     marginTop: 2,
   },
   productPrice: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#059669',
     marginTop: 4,
   },
   productStock: {
     fontSize: 12,
-    color: '#9ca3af',
     marginTop: 2,
   },
   cantidadBadge: {
-    backgroundColor: '#2563EB',
     borderRadius: 12,
     width: 24,
     height: 24,
@@ -468,7 +542,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
   },
   carritoInfo: {
     flex: 1,
@@ -476,17 +549,14 @@ const styles = StyleSheet.create({
   carritoName: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#111827',
   },
   carritoPrice: {
     fontSize: 12,
-    color: '#6b7280',
     marginTop: 2,
   },
   carritoSubtotal: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#059669',
     marginTop: 2,
   },
   carritoControls: {
@@ -498,14 +568,12 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#f3f4f6',
     justifyContent: 'center',
     alignItems: 'center',
   },
   cantidadText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#111827',
     minWidth: 20,
     textAlign: 'center',
   },
@@ -513,45 +581,35 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#fef2f2',
     justifyContent: 'center',
     alignItems: 'center',
   },
   carritoEmpty: {
     textAlign: 'center',
-    color: '#9ca3af',
     fontSize: 16,
     marginTop: 40,
   },
   totalContainer: {
     paddingTop: 16,
     borderTopWidth: 2,
-    borderTopColor: '#e5e7eb',
     marginTop: 16,
   },
   totalText: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
     textAlign: 'center',
   },
   footer: {
     padding: 20,
-    backgroundColor: '#ffffff',
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
   },
   ventaButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#059669',
     borderRadius: 8,
     padding: 16,
     gap: 8,
-  },
-  ventaButtonDisabled: {
-    backgroundColor: '#9ca3af',
   },
   ventaButtonText: {
     color: '#ffffff',

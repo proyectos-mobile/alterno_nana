@@ -2,6 +2,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   ChartBar as BarChart3,
   CreditCard as Edit3,
+  Globe,
   Moon,
   Package,
   Plus,
@@ -12,6 +13,7 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Alert,
@@ -24,11 +26,14 @@ import {
   View,
 } from 'react-native';
 import CategoryForm from '../../components/CategoryForm';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../lib/supabase';
 
 export default function ConfiguracionScreen() {
   const { theme, colors, changeTheme } = useTheme();
+  const { currentLanguage, changeLanguage, availableLanguages } = useLanguage();
+  const { t } = useTranslation();
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -62,11 +67,11 @@ export default function ConfiguracionScreen() {
       setCategorias(categoriasWithCount);
     } catch (error) {
       Alert.alert(
-        'Error',
-        'No se pudieron cargar las categorías: ' + error.message
+        t('common.error'),
+        t('settings.loadCategoriesError') + ': ' + error.message
       );
     }
-  }, []);
+  }, [t]);
 
   const loadStats = useCallback(async () => {
     try {
@@ -92,11 +97,14 @@ export default function ConfiguracionScreen() {
       setLoading(true);
       await Promise.all([loadCategorias(), loadStats()]);
     } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar los datos: ' + error.message);
+      Alert.alert(
+        t('common.error'),
+        t('settings.loadError') + ': ' + error.message
+      );
     } finally {
       setLoading(false);
     }
-  }, [loadCategorias, loadStats]);
+  }, [loadCategorias, loadStats, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -118,22 +126,22 @@ export default function ConfiguracionScreen() {
   const handleDeleteCategory = async (categoryId, productosCount) => {
     if (productosCount > 0) {
       Alert.alert(
-        'No se puede eliminar',
-        'Esta categoría tiene productos asociados. Elimina o reasigna los productos primero.'
+        t('settings.cannotDelete'),
+        t('settings.categoryHasProducts')
       );
       return;
     }
 
     Alert.alert(
-      'Confirmar Eliminación',
-      '¿Estás seguro de que deseas eliminar esta categoría?',
+      t('settings.confirmDelete'),
+      t('settings.confirmDeleteMessage'),
       [
         {
-          text: 'Cancelar',
+          text: t('common.cancel'),
           style: 'cancel',
         },
         {
-          text: 'Eliminar',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -144,12 +152,12 @@ export default function ConfiguracionScreen() {
 
               if (error) throw error;
 
-              Alert.alert('Éxito', 'Categoría eliminada correctamente');
+              Alert.alert(t('common.success'), t('settings.deleteSuccess'));
               loadData();
             } catch (error) {
               Alert.alert(
-                'Error',
-                'No se pudo eliminar la categoría: ' + error.message
+                t('common.error'),
+                t('settings.deleteError') + ': ' + error.message
               );
             }
           },
@@ -171,7 +179,7 @@ export default function ConfiguracionScreen() {
     <View style={[styles.section, { backgroundColor: colors.surface }]}>
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Tema de la Aplicación
+          {t('settings.theme')}
         </Text>
       </View>
 
@@ -189,7 +197,7 @@ export default function ConfiguracionScreen() {
         >
           <Sun size={24} color={colors.text} />
           <Text style={[styles.themeOptionText, { color: colors.text }]}>
-            Claro
+            {t('settings.light')}
           </Text>
           {theme === 'light' && (
             <View
@@ -210,7 +218,7 @@ export default function ConfiguracionScreen() {
         >
           <Moon size={24} color={colors.text} />
           <Text style={[styles.themeOptionText, { color: colors.text }]}>
-            Oscuro
+            {t('settings.dark')}
           </Text>
           {theme === 'dark' && (
             <View
@@ -234,7 +242,7 @@ export default function ConfiguracionScreen() {
         >
           <Smartphone size={24} color={colors.text} />
           <Text style={[styles.themeOptionText, { color: colors.text }]}>
-            Sistema
+            {t('settings.system')}
           </Text>
           {theme === 'system' && (
             <View
@@ -248,8 +256,58 @@ export default function ConfiguracionScreen() {
 
       <Text style={[styles.themeDescription, { color: colors.textSecondary }]}>
         {theme === 'system'
-          ? 'Se adapta automáticamente al tema de tu dispositivo'
-          : `Tema ${theme === 'light' ? 'claro' : 'oscuro'} seleccionado`}
+          ? t('settings.themeSystemDescription')
+          : theme === 'light'
+          ? t('settings.themeLightSelected')
+          : t('settings.themeDarkSelected')}
+      </Text>
+    </View>
+  );
+
+  const renderLanguageSection = () => (
+    <View style={[styles.section, { backgroundColor: colors.surface }]}>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          {t('settings.language')}
+        </Text>
+      </View>
+
+      <View style={styles.themeOptions}>
+        {availableLanguages.map((language) => (
+          <TouchableOpacity
+            key={language.code}
+            style={[
+              styles.themeOption,
+              {
+                backgroundColor: colors.background,
+                borderColor: colors.border,
+              },
+              currentLanguage === language.code && {
+                borderColor: colors.primary,
+                borderWidth: 2,
+              },
+            ]}
+            onPress={() => changeLanguage(language.code)}
+          >
+            <Globe size={24} color={colors.text} />
+            <Text style={[styles.themeOptionText, { color: colors.text }]}>
+              {t(`settings.${language.code === 'es' ? 'spanish' : 'english'}`)}
+            </Text>
+            {currentLanguage === language.code && (
+              <View
+                style={[styles.themeCheck, { backgroundColor: colors.primary }]}
+              >
+                <Text style={styles.themeCheckText}>✓</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={[styles.themeDescription, { color: colors.textSecondary }]}>
+        {currentLanguage === 'es'
+          ? t('settings.currentLanguageSpanish')
+          : t('settings.currentLanguageEnglish')}
       </Text>
     </View>
   );
@@ -257,7 +315,7 @@ export default function ConfiguracionScreen() {
   const renderStatsCard = () => (
     <View style={[styles.statsCard, { backgroundColor: colors.surface }]}>
       <Text style={[styles.statsTitle, { color: colors.text }]}>
-        Resumen General
+        {t('settings.statistics')}
       </Text>
       <View style={styles.statsGrid}>
         <View style={styles.statItem}>
@@ -266,7 +324,7 @@ export default function ConfiguracionScreen() {
             {stats.totalCategorias}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-            Categorías
+            {t('settings.totalCategories')}
           </Text>
         </View>
         <View style={styles.statItem}>
@@ -275,7 +333,7 @@ export default function ConfiguracionScreen() {
             {stats.totalProductos}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-            Productos
+            {t('products.totalProducts')}
           </Text>
         </View>
         <View style={styles.statItem}>
@@ -284,7 +342,7 @@ export default function ConfiguracionScreen() {
             {stats.totalVentas}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-            Ventas
+            {t('sales.totalSales')}
           </Text>
         </View>
       </View>
@@ -308,7 +366,10 @@ export default function ConfiguracionScreen() {
           {item.descripcion}
         </Text>
         <Text style={[styles.categoryCount, { color: colors.textTertiary }]}>
-          {item.productosCount} producto{item.productosCount !== 1 ? 's' : ''}
+          {item.productosCount}{' '}
+          {item.productosCount !== 1
+            ? t('settings.productCountPlural')
+            : t('settings.productCount')}
         </Text>
       </View>
       <View style={styles.categoryActions}>
@@ -338,14 +399,14 @@ export default function ConfiguracionScreen() {
     <View style={[styles.section, { backgroundColor: colors.surface }]}>
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Gestión de Categorías
+          {t('settings.categories')}
         </Text>
         <TouchableOpacity
           style={[styles.addButton, { backgroundColor: colors.primary }]}
           onPress={() => setShowCategoryForm(true)}
         >
           <Plus size={16} color="#ffffff" />
-          <Text style={styles.addButtonText}>Nueva</Text>
+          <Text style={styles.addButtonText}>{t('settings.newCategory')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -361,10 +422,10 @@ export default function ConfiguracionScreen() {
         <View style={styles.emptyContainer}>
           <Tag size={48} color={colors.textTertiary} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            No hay categorías
+            {t('settings.noCategories')}
           </Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            Comienza creando tu primera categoría
+            {t('settings.createFirstCategory')}
           </Text>
         </View>
       )}
@@ -377,7 +438,7 @@ export default function ConfiguracionScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.text }]}>
-            Cargando configuración...
+            {t('settings.loadingSettings')}
           </Text>
         </View>
       ) : (
@@ -392,16 +453,17 @@ export default function ConfiguracionScreen() {
             <View style={styles.titleContainer}>
               <Settings size={28} color="#6B46C1" />
               <Text style={[styles.title, { color: colors.text }]}>
-                Configuración
+                {t('settings.title')}
               </Text>
             </View>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Gestiona categorías y configuraciones del sistema
+              {t('settings.subtitle')}
             </Text>
           </View>
 
           {renderStatsCard()}
           {renderThemeSection()}
+          {renderLanguageSection()}
           {renderCategoriesSection()}
         </ScrollView>
       )}

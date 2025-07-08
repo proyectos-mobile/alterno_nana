@@ -1,6 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { Package, Plus, Search } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   FlatList,
@@ -19,6 +20,7 @@ import { supabase } from '../../lib/supabase';
 
 export default function ProductsScreen() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -126,42 +128,44 @@ export default function ProductsScreen() {
 
   const renderHeader = useCallback(
     () => (
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface }]}>
         <TouchableOpacity
-          style={styles.addButton}
+          style={[styles.addButton, { backgroundColor: colors.primary }]}
           onPress={() => setShowForm(true)}
         >
           <Plus size={20} color="#ffffff" />
-          <Text style={styles.addButtonText}>Nuevo Producto</Text>
+          <Text style={styles.addButtonText}>{t('products.newProduct')}</Text>
         </TouchableOpacity>
 
         <View style={styles.statsContainer}>
-          <Text style={styles.statsText}>
-            Total: {filteredProductos.length} productos
+          <Text style={[styles.statsText, { color: colors.textSecondary }]}>
+            {t('products.totalProducts')}: {filteredProductos.length}
           </Text>
-          <Text style={styles.lowStockText}>
-            Stock bajo: {filteredProductos.filter((p) => p.stock <= 10).length}{' '}
-            productos
+          <Text style={[styles.lowStockText, { color: colors.danger }]}>
+            {t('products.lowStock')}:{' '}
+            {filteredProductos.filter((p) => p.stock <= 10).length}
           </Text>
         </View>
       </View>
     ),
-    [filteredProductos]
+    [filteredProductos, colors, t]
   );
 
   const renderEmpty = useCallback(
     () => (
       <View style={styles.emptyContainer}>
-        <Package size={64} color="#d1d5db" />
-        <Text style={styles.emptyTitle}>No hay productos</Text>
-        <Text style={styles.emptyText}>
+        <Package size={64} color={colors.textTertiary} />
+        <Text style={[styles.emptyTitle, { color: colors.text }]}>
+          No hay productos
+        </Text>
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
           {searchQuery
             ? 'No se encontraron productos que coincidan con tu búsqueda'
             : 'Comienza agregando tu primer producto'}
         </Text>
       </View>
     ),
-    [searchQuery]
+    [searchQuery, colors]
   );
 
   return (
@@ -178,7 +182,9 @@ export default function ProductsScreen() {
       >
         <View style={styles.titleContainer}>
           <Package size={28} color={colors.secondary} />
-          <Text style={[styles.title, { color: colors.text }]}>Productos</Text>
+          <Text style={[styles.title, { color: colors.text }]}>
+            {t('products.title')}
+          </Text>
         </View>
 
         <View
@@ -193,7 +199,7 @@ export default function ProductsScreen() {
           <Search size={20} color={colors.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Buscar productos..."
+            placeholder={t('products.searchProducts')}
             placeholderTextColor={colors.textTertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -216,8 +222,12 @@ export default function ProductsScreen() {
       />
 
       {loading && (
-        <View style={styles.loadingOverlay}>
-          <Text style={styles.loadingText}>Cargando productos...</Text>
+        <View
+          style={[styles.loadingOverlay, { backgroundColor: colors.overlay }]}
+        >
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            {t('products.loadingProducts')}
+          </Text>
         </View>
       )}
 
@@ -234,14 +244,11 @@ export default function ProductsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
   },
   searchSection: {
-    backgroundColor: '#ffffff',
     paddingHorizontal: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
   },
   titleContainer: {
     flexDirection: 'row',
@@ -252,26 +259,21 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#111827',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
     borderRadius: 12,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#111827',
     paddingVertical: 12,
     paddingLeft: 12,
   },
   header: {
-    backgroundColor: '#ffffff',
     padding: 20,
     marginBottom: 8,
   },
@@ -279,7 +281,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2563EB',
     borderRadius: 12,
     padding: 16,
     gap: 8,
@@ -297,12 +298,10 @@ const styles = StyleSheet.create({
   },
   statsText: {
     fontSize: 14,
-    color: '#6b7280',
     fontWeight: '500',
   },
   lowStockText: {
     fontSize: 14,
-    color: '#DC2626',
     fontWeight: '500',
   },
   emptyContainer: {
@@ -314,13 +313,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#374151',
     marginTop: 16,
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 16,
-    color: '#6b7280',
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -330,13 +327,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(248, 250, 252, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
     fontSize: 16,
-    color: '#6b7280',
     fontWeight: '500',
   },
 });

@@ -1,20 +1,28 @@
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { CreditCard as Edit3, Trash2, TriangleAlert as AlertTriangle } from 'lucide-react-native';
+import {
+  TriangleAlert as AlertTriangle,
+  CreditCard as Edit3,
+  Trash2,
+} from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function ProductCard({ product, onEdit, onDelete }) {
+  const { t } = useTranslation();
+  const { colors } = useTheme();
   const isLowStock = product.stock <= 10;
 
   const handleDelete = () => {
     Alert.alert(
-      'Confirmar Eliminación',
-      `¿Estás seguro de que deseas eliminar "${product.nombre}"?`,
+      t('products.deleteConfirm'),
+      t('products.deleteMessage', { name: product.nombre }),
       [
         {
-          text: 'Cancelar',
+          text: t('common.cancel'),
           style: 'cancel',
         },
         {
-          text: 'Eliminar',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => onDelete(product.id),
         },
@@ -23,40 +31,71 @@ export default function ProductCard({ product, onEdit, onDelete }) {
   };
 
   return (
-    <View style={[styles.card, isLowStock && styles.lowStockCard]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+        isLowStock && {
+          borderColor: colors.warning + '60',
+          backgroundColor: colors.warning + '10',
+        },
+      ]}
+    >
       <View style={styles.header}>
         <View style={styles.titleContainer}>
-          <Text style={styles.name}>{product.nombre}</Text>
+          <Text style={[styles.name, { color: colors.text }]}>
+            {product.nombre}
+          </Text>
           {isLowStock && (
             <View style={styles.warningContainer}>
-              <AlertTriangle size={16} color="#EA580C" />
-              <Text style={styles.warningText}>Stock Bajo</Text>
+              <AlertTriangle size={16} color={colors.warning} />
+              <Text style={[styles.warningText, { color: colors.warning }]}>
+                {t('products.lowStockText')}
+              </Text>
             </View>
           )}
         </View>
         <View style={styles.actions}>
-          <TouchableOpacity 
-            style={styles.actionButton} 
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              { backgroundColor: colors.background },
+            ]}
             onPress={() => onEdit(product)}
           >
-            <Edit3 size={16} color="#059669" />
+            <Edit3 size={16} color={colors.success} />
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.actionButton} 
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              { backgroundColor: colors.background },
+            ]}
             onPress={handleDelete}
           >
-            <Trash2 size={16} color="#DC2626" />
+            <Trash2 size={16} color={colors.danger} />
           </TouchableOpacity>
         </View>
       </View>
-      
-      <Text style={styles.description}>{product.descripcion}</Text>
-      <Text style={styles.category}>Categoría: {product.categoria_nombre}</Text>
-      
+
+      <Text style={[styles.description, { color: colors.textSecondary }]}>
+        {product.descripcion}
+      </Text>
+      <Text style={[styles.category, { color: colors.textTertiary }]}>
+        {t('products.categoryLabel')} {product.categoria_nombre}
+      </Text>
+
       <View style={styles.footer}>
-        <Text style={styles.price}>${product.precio}</Text>
-        <Text style={[styles.stock, isLowStock && styles.lowStock]}>
-          Stock: {product.stock}
+        <Text style={[styles.price, { color: colors.success }]}>
+          ${product.precio}
+        </Text>
+        <Text
+          style={[
+            styles.stock,
+            { color: colors.text },
+            isLowStock && { color: colors.danger },
+          ]}
+        >
+          {t('common.stockLabel')} {product.stock}
         </Text>
       </View>
     </View>
@@ -65,7 +104,6 @@ export default function ProductCard({ product, onEdit, onDelete }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 16,
     marginVertical: 6,
@@ -79,11 +117,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     borderWidth: 1,
-    borderColor: '#f3f4f6',
-  },
-  lowStockCard: {
-    borderColor: '#FED7AA',
-    backgroundColor: '#FFFBEB',
   },
   header: {
     flexDirection: 'row',
@@ -97,7 +130,6 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
     marginBottom: 4,
   },
   warningContainer: {
@@ -107,7 +139,6 @@ const styles = StyleSheet.create({
   },
   warningText: {
     fontSize: 12,
-    color: '#EA580C',
     fontWeight: '500',
     marginLeft: 4,
   },
@@ -118,16 +149,13 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: 8,
     borderRadius: 6,
-    backgroundColor: '#f9fafb',
   },
   description: {
     fontSize: 14,
-    color: '#6b7280',
     marginBottom: 8,
   },
   category: {
     fontSize: 12,
-    color: '#9ca3af',
     marginBottom: 12,
   },
   footer: {
@@ -138,15 +166,9 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#059669',
   },
   stock: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#374151',
-  },
-  lowStock: {
-    color: '#DC2626',
-    fontWeight: '600',
   },
 });

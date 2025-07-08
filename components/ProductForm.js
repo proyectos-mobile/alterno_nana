@@ -1,27 +1,43 @@
-import { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  StyleSheet, 
-  TouchableOpacity, 
+import { Package, Save, X } from 'lucide-react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
   Alert,
   Modal,
-  ScrollView
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { X, Save, Package } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
 
 export default function ProductForm({ visible, onClose, product, onSave }) {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     nombre: '',
     precio: '',
     stock: '',
     descripcion: '',
-    categoria_id: ''
+    categoria_id: '',
   });
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  const loadCategorias = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('categorias')
+        .select('*')
+        .order('nombre');
+
+      if (error) throw error;
+      setCategorias(data || []);
+    } catch {
+      Alert.alert(t('common.error'), t('productForm.loadCategoriesError'));
+    }
+  }, [t]);
 
   useEffect(() => {
     if (visible) {
@@ -32,7 +48,7 @@ export default function ProductForm({ visible, onClose, product, onSave }) {
           precio: product.precio?.toString() || '',
           stock: product.stock?.toString() || '',
           descripcion: product.descripcion || '',
-          categoria_id: product.categoria_id || ''
+          categoria_id: product.categoria_id || '',
         });
       } else {
         setFormData({
@@ -40,44 +56,30 @@ export default function ProductForm({ visible, onClose, product, onSave }) {
           precio: '',
           stock: '',
           descripcion: '',
-          categoria_id: ''
+          categoria_id: '',
         });
       }
     }
-  }, [visible, product]);
-
-  const loadCategorias = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('categorias')
-        .select('*')
-        .order('nombre');
-      
-      if (error) throw error;
-      setCategorias(data || []);
-    } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar las categorías');
-    }
-  };
+  }, [visible, product, loadCategorias]);
 
   const handleSave = async () => {
     if (!formData.nombre.trim()) {
-      Alert.alert('Error', 'El nombre del producto es obligatorio');
+      Alert.alert(t('common.error'), t('productForm.nameRequired'));
       return;
     }
 
-    if (!formData.precio || isNaN(parseFloat(formData.precio))) {
-      Alert.alert('Error', 'El precio debe ser un número válido');
+    if (!formData.precio || Number.isNaN(parseFloat(formData.precio))) {
+      Alert.alert(t('common.error'), t('productForm.priceRequired'));
       return;
     }
 
-    if (!formData.stock || isNaN(parseInt(formData.stock))) {
-      Alert.alert('Error', 'El stock debe ser un número válido');
+    if (!formData.stock || Number.isNaN(parseInt(formData.stock))) {
+      Alert.alert(t('common.error'), t('productForm.stockRequired'));
       return;
     }
 
     if (!formData.categoria_id) {
-      Alert.alert('Error', 'Debe seleccionar una categoría');
+      Alert.alert(t('common.error'), t('productForm.categoryRequired'));
       return;
     }
 
@@ -89,7 +91,7 @@ export default function ProductForm({ visible, onClose, product, onSave }) {
         precio: parseFloat(formData.precio),
         stock: parseInt(formData.stock),
         descripcion: formData.descripcion.trim(),
-        categoria_id: formData.categoria_id
+        categoria_id: formData.categoria_id,
       };
 
       let result;
@@ -109,13 +111,18 @@ export default function ProductForm({ visible, onClose, product, onSave }) {
       if (result.error) throw result.error;
 
       Alert.alert(
-        'Éxito', 
-        product ? 'Producto actualizado correctamente' : 'Producto creado correctamente'
+        t('common.success'),
+        product
+          ? t('productForm.updateSuccess')
+          : t('productForm.createSuccess')
       );
       onSave();
       onClose();
     } catch (error) {
-      Alert.alert('Error', 'No se pudo guardar el producto: ' + error.message);
+      Alert.alert(
+        t('common.error'),
+        t('productForm.createError') + ': ' + error.message
+      );
     } finally {
       setLoading(false);
     }
@@ -133,7 +140,9 @@ export default function ProductForm({ visible, onClose, product, onSave }) {
           <View style={styles.titleContainer}>
             <Package size={24} color="#2563EB" />
             <Text style={styles.title}>
-              {product ? 'Editar Producto' : 'Nuevo Producto'}
+              {product
+                ? t('productForm.editProduct')
+                : t('productForm.newProduct')}
             </Text>
           </View>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -143,56 +152,71 @@ export default function ProductForm({ visible, onClose, product, onSave }) {
 
         <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Nombre del Producto *</Text>
+            <Text style={styles.label}>{t('productForm.productName')}</Text>
             <TextInput
               style={styles.input}
               value={formData.nombre}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, nombre: text }))}
-              placeholder="Ej: Bolígrafo Azul BIC"
+              onChangeText={(text) =>
+                setFormData((prev) => ({ ...prev, nombre: text }))
+              }
+              placeholder={t('productForm.productNamePlaceholder')}
               placeholderTextColor="#9ca3af"
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Precio *</Text>
+            <Text style={styles.label}>{t('productForm.productPrice')}</Text>
             <TextInput
               style={styles.input}
               value={formData.precio}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, precio: text }))}
-              placeholder="0.00"
+              onChangeText={(text) =>
+                setFormData((prev) => ({ ...prev, precio: text }))
+              }
+              placeholder={t('productForm.pricePlaceholder')}
               placeholderTextColor="#9ca3af"
               keyboardType="decimal-pad"
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Stock *</Text>
+            <Text style={styles.label}>{t('productForm.productStock')}</Text>
             <TextInput
               style={styles.input}
               value={formData.stock}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, stock: text }))}
-              placeholder="0"
+              onChangeText={(text) =>
+                setFormData((prev) => ({ ...prev, stock: text }))
+              }
+              placeholder={t('productForm.stockPlaceholder')}
               placeholderTextColor="#9ca3af"
               keyboardType="number-pad"
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Categoría *</Text>
+            <Text style={styles.label}>{t('productForm.selectCategory')}</Text>
             <View style={styles.categoryContainer}>
               {categorias.map((categoria) => (
                 <TouchableOpacity
                   key={categoria.id}
                   style={[
                     styles.categoryButton,
-                    formData.categoria_id === categoria.id && styles.categoryButtonSelected
+                    formData.categoria_id === categoria.id &&
+                      styles.categoryButtonSelected,
                   ]}
-                  onPress={() => setFormData(prev => ({ ...prev, categoria_id: categoria.id }))}
+                  onPress={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      categoria_id: categoria.id,
+                    }))
+                  }
                 >
-                  <Text style={[
-                    styles.categoryButtonText,
-                    formData.categoria_id === categoria.id && styles.categoryButtonTextSelected
-                  ]}>
+                  <Text
+                    style={[
+                      styles.categoryButtonText,
+                      formData.categoria_id === categoria.id &&
+                        styles.categoryButtonTextSelected,
+                    ]}
+                  >
                     {categoria.nombre}
                   </Text>
                 </TouchableOpacity>
@@ -201,12 +225,16 @@ export default function ProductForm({ visible, onClose, product, onSave }) {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Descripción</Text>
+            <Text style={styles.label}>
+              {t('productForm.productDescription')}
+            </Text>
             <TextInput
               style={[styles.input, styles.textArea]}
               value={formData.descripcion}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, descripcion: text }))}
-              placeholder="Descripción del producto..."
+              onChangeText={(text) =>
+                setFormData((prev) => ({ ...prev, descripcion: text }))
+              }
+              placeholder={t('productForm.descriptionPlaceholder')}
               placeholderTextColor="#9ca3af"
               multiline
               numberOfLines={3}
@@ -222,7 +250,9 @@ export default function ProductForm({ visible, onClose, product, onSave }) {
           >
             <Save size={20} color="#ffffff" />
             <Text style={styles.saveButtonText}>
-              {loading ? 'Guardando...' : 'Guardar Producto'}
+              {loading
+                ? t('productForm.creating')
+                : t('productForm.saveProduct')}
             </Text>
           </TouchableOpacity>
         </View>

@@ -7,6 +7,7 @@ import {
   TrendingUp,
 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Alert,
@@ -21,6 +22,7 @@ import { supabase } from '../../lib/supabase';
 
 export default function ReportesScreen() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [reportes, setReportes] = useState({
     ventasHoy: 0,
     ventasSemana: 0,
@@ -100,7 +102,7 @@ export default function ReportesScreen() {
         if (!productosVendidos[id]) {
           productosVendidos[id] = {
             id,
-            nombre: detalle.productos?.nombre || 'Producto eliminado',
+            nombre: detalle.productos?.nombre || t('reports.deletedProduct'),
             precio: detalle.productos?.precio || 0,
             totalVendido: 0,
           };
@@ -122,13 +124,13 @@ export default function ReportesScreen() {
       });
     } catch (error) {
       Alert.alert(
-        'Error',
-        'No se pudieron cargar los reportes: ' + error.message
+        t('common.error'),
+        t('reports.loadError') + ': ' + error.message
       );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -147,7 +149,7 @@ export default function ReportesScreen() {
       <View style={styles.cardHeader}>
         <DollarSign size={24} color={colors.success} />
         <Text style={[styles.cardTitle, { color: colors.text }]}>
-          Resumen de Ventas
+          {t('reports.salesSummary')}
         </Text>
       </View>
       <View style={styles.ventasStats}>
@@ -156,7 +158,7 @@ export default function ReportesScreen() {
             ${reportes.ventasHoy.toFixed(2)}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-            Hoy
+            {t('reports.today')}
           </Text>
         </View>
         <View style={styles.statItem}>
@@ -164,7 +166,7 @@ export default function ReportesScreen() {
             ${reportes.ventasSemana.toFixed(2)}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-            Esta Semana
+            {t('reports.thisWeek')}
           </Text>
         </View>
         <View style={styles.statItem}>
@@ -172,7 +174,7 @@ export default function ReportesScreen() {
             ${reportes.ventasMes.toFixed(2)}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-            Este Mes
+            {t('reports.thisMonth')}
           </Text>
         </View>
       </View>
@@ -184,7 +186,7 @@ export default function ReportesScreen() {
       <View style={styles.cardHeader}>
         <TrendingUp size={24} color={colors.secondary} />
         <Text style={[styles.cardTitle, { color: colors.text }]}>
-          Productos Más Vendidos
+          {t('reports.topSellingProducts')}
         </Text>
       </View>
       {reportes.productosMasVendidos.length > 0 ? (
@@ -206,7 +208,7 @@ export default function ReportesScreen() {
               <Text
                 style={[styles.productoStats, { color: colors.textSecondary }]}
               >
-                {producto.totalVendido} unidades vendidas
+                {producto.totalVendido} {t('reports.unitsSold')}
               </Text>
             </View>
             <Text style={[styles.productoPrecio, { color: colors.success }]}>
@@ -216,7 +218,7 @@ export default function ReportesScreen() {
         ))
       ) : (
         <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
-          No hay datos de ventas disponibles
+          {t('reports.noSalesData')}
         </Text>
       )}
     </View>
@@ -227,7 +229,7 @@ export default function ReportesScreen() {
       <View style={styles.cardHeader}>
         <AlertTriangle size={24} color={colors.warning} />
         <Text style={[styles.cardTitle, { color: colors.text }]}>
-          Productos con Stock Bajo
+          {t('reports.lowStockProducts')}
         </Text>
       </View>
       {reportes.productosStockBajo.length > 0 ? (
@@ -266,7 +268,7 @@ export default function ReportesScreen() {
         ))
       ) : (
         <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
-          Todos los productos tienen stock suficiente
+          {t('reports.allProductsStocked')}
         </Text>
       )}
     </View>
@@ -277,7 +279,7 @@ export default function ReportesScreen() {
       <View style={styles.cardHeader}>
         <Package size={24} color="#7C3AED" />
         <Text style={[styles.cardTitle, { color: colors.text }]}>
-          Estadísticas Generales
+          {t('reports.generalStatistics')}
         </Text>
       </View>
       <View style={styles.generalStats}>
@@ -288,7 +290,7 @@ export default function ReportesScreen() {
           <Text
             style={[styles.generalStatLabel, { color: colors.textSecondary }]}
           >
-            Total de Productos
+            {t('reports.totalProducts')}
           </Text>
         </View>
         <View style={styles.generalStatItem}>
@@ -298,7 +300,7 @@ export default function ReportesScreen() {
           <Text
             style={[styles.generalStatLabel, { color: colors.textSecondary }]}
           >
-            Con Stock Bajo
+            {t('reports.lowStockCount')}
           </Text>
         </View>
       </View>
@@ -311,7 +313,7 @@ export default function ReportesScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.text }]}>
-            Cargando reportes...
+            {t('common.loading')}
           </Text>
         </View>
       ) : (
@@ -326,11 +328,11 @@ export default function ReportesScreen() {
             <View style={styles.titleContainer}>
               <BarChart3 size={28} color="#7C3AED" />
               <Text style={[styles.title, { color: colors.text }]}>
-                Reportes
+                {t('reports.title')}
               </Text>
             </View>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Análisis y estadísticas de tu papelería
+              {t('reports.subtitle')}
             </Text>
           </View>
 

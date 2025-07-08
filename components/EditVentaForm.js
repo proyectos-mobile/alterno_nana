@@ -1,5 +1,6 @@
 import { Save, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Modal,
@@ -15,6 +16,7 @@ import { supabase } from '../lib/supabase';
 
 export default function EditVentaForm({ visible, onClose, venta, onSave }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [fecha, setFecha] = useState('');
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -36,7 +38,7 @@ export default function EditVentaForm({ visible, onClose, venta, onSave }) {
 
   const handleSave = async () => {
     if (!fecha.trim()) {
-      Alert.alert('Error', 'Por favor ingresa la fecha');
+      Alert.alert(t('common.error'), t('editSale.dateRequired'));
       return;
     }
 
@@ -45,7 +47,7 @@ export default function EditVentaForm({ visible, onClose, venta, onSave }) {
     );
 
     if (productosValidos.length === 0) {
-      Alert.alert('Error', 'Debe haber al menos un producto válido');
+      Alert.alert(t('common.error'), t('editSale.atLeastOneProduct'));
       return;
     }
 
@@ -58,7 +60,71 @@ export default function EditVentaForm({ visible, onClose, venta, onSave }) {
         0
       );
 
-      // Actualizar venta
+      // PASO 1: Restaurar el stock de la venta original
+      for (const detalleOriginal of venta.detalle_ventas) {
+        // Obtener el stock actual
+        const { data: productoActual, error: getError } = await supabase
+          .from('productos')
+          .select('stock')
+          .eq('id', detalleOriginal.producto_id)
+          .single();
+
+        if (getError) throw getError;
+
+        // Restaurar el stock
+        const { error: stockError } = await supabase
+          .from('productos')
+          .update({
+            stock: productoActual.stock + detalleOriginal.cantidad,
+          })
+          .eq('id', detalleOriginal.producto_id);
+
+        if (stockError) throw stockError;
+      }
+
+      // PASO 2: Verificar que hay stock suficiente para la nueva venta
+      for (const producto of productosValidos) {
+        const { data: productoActual, error: checkError } = await supabase
+          .from('productos')
+          .select('stock, nombre')
+          .eq('id', producto.producto_id)
+          .single();
+
+        if (checkError) throw checkError;
+
+        if (productoActual.stock < parseFloat(producto.cantidad)) {
+          // Si no hay stock suficiente, revertir los cambios hechos hasta ahora
+          for (const detalleRevert of venta.detalle_ventas) {
+            const { data: productoRevert, error: getRevertError } =
+              await supabase
+                .from('productos')
+                .select('stock')
+                .eq('id', detalleRevert.producto_id)
+                .single();
+
+            if (!getRevertError) {
+              await supabase
+                .from('productos')
+                .update({
+                  stock: productoRevert.stock - detalleRevert.cantidad,
+                })
+                .eq('id', detalleRevert.producto_id);
+            }
+          }
+
+          Alert.alert(
+            t('editSale.insufficientStock'),
+            t('editSale.insufficientStock', {
+              name: productoActual.nombre,
+              available: productoActual.stock,
+              requested: producto.cantidad,
+            })
+          );
+          return;
+        }
+      }
+
+      // PASO 3: Actualizar venta
       const { error: ventaError } = await supabase
         .from('ventas')
         .update({
@@ -69,7 +135,7 @@ export default function EditVentaForm({ visible, onClose, venta, onSave }) {
 
       if (ventaError) throw ventaError;
 
-      // Eliminar detalles existentes
+      // PASO 4: Eliminar detalles existentes
       const { error: deleteError } = await supabase
         .from('detalle_ventas')
         .delete()
@@ -77,7 +143,7 @@ export default function EditVentaForm({ visible, onClose, venta, onSave }) {
 
       if (deleteError) throw deleteError;
 
-      // Insertar nuevos detalles
+      // PASO 5: Insertar nuevos detalles
       const detallesData = productosValidos.map((p) => ({
         venta_id: venta.id,
         producto_id: p.producto_id,
@@ -91,11 +157,36 @@ export default function EditVentaForm({ visible, onClose, venta, onSave }) {
 
       if (insertError) throw insertError;
 
-      Alert.alert('Éxito', 'Venta actualizada correctamente');
+      // PASO 6: Deducir el stock de los productos en la nueva venta
+      for (const producto of productosValidos) {
+        // Obtener el stock actual
+        const { data: productoActual, error: getError } = await supabase
+          .from('productos')
+          .select('stock')
+          .eq('id', producto.producto_id)
+          .single();
+
+        if (getError) throw getError;
+
+        // Deducir el stock
+        const { error: stockError } = await supabase
+          .from('productos')
+          .update({
+            stock: productoActual.stock - parseFloat(producto.cantidad),
+          })
+          .eq('id', producto.producto_id);
+
+        if (stockError) throw stockError;
+      }
+
+      Alert.alert(t('common.success'), t('editSale.updateSuccess'));
       onSave();
       onClose();
     } catch (error) {
-      Alert.alert('Error', 'No se pudo actualizar la venta: ' + error.message);
+      Alert.alert(
+        t('common.error'),
+        t('editSale.updateError') + ': ' + error.message
+      );
     } finally {
       setLoading(false);
     }
@@ -224,7 +315,7 @@ export default function EditVentaForm({ visible, onClose, venta, onSave }) {
       <View style={styles.overlay}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <Text style={styles.title}>Editar Venta</Text>
+            <Text style={styles.title}>{t('editSale.title')}</Text>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <X size={24} color={colors.text} />
             </TouchableOpacity>
@@ -235,7 +326,7 @@ export default function EditVentaForm({ visible, onClose, venta, onSave }) {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.section}>
-              <Text style={styles.label}>Fecha</Text>
+              <Text style={styles.label}>{t('common.date')}</Text>
               <TextInput
                 style={styles.input}
                 value={fecha}
@@ -246,7 +337,7 @@ export default function EditVentaForm({ visible, onClose, venta, onSave }) {
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.label}>Productos</Text>
+              <Text style={styles.label}>{t('products.title')}</Text>
               {productos.map((producto, index) => (
                 <View key={producto.id} style={styles.productoCard}>
                   <Text style={styles.productoNombre}>{producto.nombre}</Text>
@@ -257,7 +348,7 @@ export default function EditVentaForm({ visible, onClose, venta, onSave }) {
                       onChangeText={(value) =>
                         updateProducto(index, 'cantidad', value)
                       }
-                      placeholder="Cantidad"
+                      placeholder={t('common.quantity')}
                       placeholderTextColor={colors.textTertiary}
                       keyboardType="numeric"
                     />
@@ -267,7 +358,7 @@ export default function EditVentaForm({ visible, onClose, venta, onSave }) {
                       onChangeText={(value) =>
                         updateProducto(index, 'precio_unitario', value)
                       }
-                      placeholder="Precio"
+                      placeholder={t('common.price')}
                       placeholderTextColor={colors.textTertiary}
                       keyboardType="decimal-pad"
                     />
@@ -283,7 +374,7 @@ export default function EditVentaForm({ visible, onClose, venta, onSave }) {
               onPress={onClose}
             >
               <Text style={[styles.buttonText, styles.cancelButtonText]}>
-                Cancelar
+                {t('common.cancel')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -293,7 +384,7 @@ export default function EditVentaForm({ visible, onClose, venta, onSave }) {
             >
               <Save size={16} color="#ffffff" />
               <Text style={[styles.buttonText, styles.saveButtonText]}>
-                {loading ? 'Guardando...' : 'Guardar'}
+                {loading ? t('editSale.saving') : t('common.save')}
               </Text>
             </TouchableOpacity>
           </View>

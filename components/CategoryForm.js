@@ -1,20 +1,24 @@
-import { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  StyleSheet, 
-  TouchableOpacity, 
+import { Save, Tag, X } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
   Alert,
-  Modal
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { X, Save, Tag } from 'lucide-react-native';
+import { useTheme } from '../contexts/ThemeContext';
 import { supabase } from '../lib/supabase';
 
 export default function CategoryForm({ visible, onClose, category, onSave }) {
+  const { t } = useTranslation();
+  const { colors } = useTheme();
   const [formData, setFormData] = useState({
     nombre: '',
-    descripcion: ''
+    descripcion: '',
   });
   const [loading, setLoading] = useState(false);
 
@@ -23,12 +27,12 @@ export default function CategoryForm({ visible, onClose, category, onSave }) {
       if (category) {
         setFormData({
           nombre: category.nombre || '',
-          descripcion: category.descripcion || ''
+          descripcion: category.descripcion || '',
         });
       } else {
         setFormData({
           nombre: '',
-          descripcion: ''
+          descripcion: '',
         });
       }
     }
@@ -36,7 +40,7 @@ export default function CategoryForm({ visible, onClose, category, onSave }) {
 
   const handleSave = async () => {
     if (!formData.nombre.trim()) {
-      Alert.alert('Error', 'El nombre de la categoría es obligatorio');
+      Alert.alert(t('common.error'), t('categories.nameRequired'));
       return;
     }
 
@@ -45,7 +49,7 @@ export default function CategoryForm({ visible, onClose, category, onSave }) {
     try {
       const categoryData = {
         nombre: formData.nombre.trim(),
-        descripcion: formData.descripcion.trim()
+        descripcion: formData.descripcion.trim(),
       };
 
       let result;
@@ -65,16 +69,19 @@ export default function CategoryForm({ visible, onClose, category, onSave }) {
       if (result.error) throw result.error;
 
       Alert.alert(
-        'Éxito', 
-        category ? 'Categoría actualizada correctamente' : 'Categoría creada correctamente'
+        t('common.success'),
+        category ? t('categories.updateSuccess') : t('categories.createSuccess')
       );
       onSave();
       onClose();
     } catch (error) {
       if (error.code === '23505') {
-        Alert.alert('Error', 'Ya existe una categoría con ese nombre');
+        Alert.alert(t('common.error'), t('categories.duplicateNameError'));
       } else {
-        Alert.alert('Error', 'No se pudo guardar la categoría: ' + error.message);
+        Alert.alert(
+          t('common.error'),
+          t('categories.createError') + ': ' + error.message
+        );
       }
     } finally {
       setLoading(false);
@@ -88,46 +95,84 @@ export default function CategoryForm({ visible, onClose, category, onSave }) {
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={styles.container}>
-        <View style={styles.header}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: colors.surface,
+              borderBottomColor: colors.border,
+            },
+          ]}
+        >
           <View style={styles.titleContainer}>
             <Tag size={24} color="#7C3AED" />
-            <Text style={styles.title}>
-              {category ? 'Editar Categoría' : 'Nueva Categoría'}
+            <Text style={[styles.title, { color: colors.text }]}>
+              {category
+                ? t('categories.editCategory')
+                : t('categories.newCategory')}
             </Text>
           </View>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <X size={24} color="#6b7280" />
+            <X size={24} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
         <View style={styles.form}>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Nombre de la Categoría *</Text>
+            <Text style={[styles.label, { color: colors.text }]}>
+              {t('categories.categoryName')}
+            </Text>
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+              ]}
               value={formData.nombre}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, nombre: text }))}
-              placeholder="Ej: Escritura"
-              placeholderTextColor="#9ca3af"
+              onChangeText={(text) =>
+                setFormData((prev) => ({ ...prev, nombre: text }))
+              }
+              placeholder={t('categories.categoryNamePlaceholder')}
+              placeholderTextColor={colors.textTertiary}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Descripción</Text>
+            <Text style={[styles.label, { color: colors.text }]}>
+              {t('categories.categoryDescription')}
+            </Text>
             <TextInput
-              style={[styles.input, styles.textArea]}
+              style={[
+                styles.input,
+                styles.textArea,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+              ]}
               value={formData.descripcion}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, descripcion: text }))}
-              placeholder="Descripción de la categoría..."
-              placeholderTextColor="#9ca3af"
+              onChangeText={(text) =>
+                setFormData((prev) => ({ ...prev, descripcion: text }))
+              }
+              placeholder={t('categories.descriptionPlaceholder')}
+              placeholderTextColor={colors.textTertiary}
               multiline
               numberOfLines={3}
             />
           </View>
         </View>
 
-        <View style={styles.footer}>
+        <View
+          style={[
+            styles.footer,
+            { backgroundColor: colors.surface, borderTopColor: colors.border },
+          ]}
+        >
           <TouchableOpacity
             style={[styles.saveButton, loading && styles.saveButtonDisabled]}
             onPress={handleSave}
@@ -135,7 +180,9 @@ export default function CategoryForm({ visible, onClose, category, onSave }) {
           >
             <Save size={20} color="#ffffff" />
             <Text style={styles.saveButtonText}>
-              {loading ? 'Guardando...' : 'Guardar Categoría'}
+              {loading
+                ? t('categories.creating')
+                : t('categories.saveCategory')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -147,16 +194,13 @@ export default function CategoryForm({ visible, onClose, category, onSave }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
   },
   titleContainer: {
     flexDirection: 'row',
@@ -166,7 +210,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#111827',
   },
   closeButton: {
     padding: 4,
@@ -181,17 +224,13 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#374151',
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#ffffff',
-    color: '#111827',
   },
   textArea: {
     height: 80,
@@ -199,9 +238,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 20,
-    backgroundColor: '#ffffff',
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
   },
   saveButton: {
     flexDirection: 'row',

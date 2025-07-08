@@ -74,6 +74,7 @@ export const ThemeProvider = ({ children }) => {
   const colors = {
     light: {
       primary: '#059669',
+      primaryLight: '#dcfce7',
       secondary: '#2563EB',
       background: '#ffcba4',
       surface: '#ffffff',
@@ -84,11 +85,14 @@ export const ThemeProvider = ({ children }) => {
       borderLight: '#f3f4f6',
       success: '#059669',
       danger: '#DC2626',
+      error: '#DC2626',
+      errorLight: '#fef2f2',
       warning: '#D97706',
       overlay: 'rgba(255, 203, 164, 0.8)',
     },
     dark: {
       primary: '#10b981',
+      primaryLight: '#064e3b',
       secondary: '#3b82f6',
       background: '#0b1215',
       surface: '#1e293b',
@@ -99,6 +103,8 @@ export const ThemeProvider = ({ children }) => {
       borderLight: '#475569',
       success: '#10b981',
       danger: '#ef4444',
+      error: '#ef4444',
+      errorLight: '#450a0a',
       warning: '#f59e0b',
       overlay: 'rgba(11, 18, 21, 0.8)',
     },

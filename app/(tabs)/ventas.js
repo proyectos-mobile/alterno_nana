@@ -9,6 +9,7 @@ import {
   X,
 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   FlatList,
@@ -27,6 +28,7 @@ import { supabase } from '../../lib/supabase';
 
 export default function VentasScreen() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [ventas, setVentas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -58,13 +60,13 @@ export default function VentasScreen() {
       setVentas(data || []);
     } catch (error) {
       Alert.alert(
-        'Error',
-        'No se pudieron cargar las ventas: ' + error.message
+        t('common.error'),
+        t('sales.loadError') + ': ' + error.message
       );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -89,49 +91,76 @@ export default function VentasScreen() {
 
   const handleDeleteVenta = useCallback(
     async (ventaId) => {
-      Alert.alert(
-        'Confirmar Eliminación',
-        '¿Estás seguro de que deseas eliminar esta venta? Esta acción no se puede deshacer.',
-        [
-          {
-            text: 'Cancelar',
-            style: 'cancel',
-          },
-          {
-            text: 'Eliminar',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                // Primero eliminar los detalles de venta
-                const { error: detallesError } = await supabase
+      Alert.alert(t('common.confirm'), t('sales.deleteConfirm'), [
+        {
+          text: t('common.cancel'),
+          style: 'cancel',
+        },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // PASO 1: Obtener los detalles de la venta para restaurar el stock
+              const { data: detallesVenta, error: detallesError } =
+                await supabase
                   .from('detalle_ventas')
-                  .delete()
+                  .select('producto_id, cantidad')
                   .eq('venta_id', ventaId);
 
-                if (detallesError) throw detallesError;
+              if (detallesError) throw detallesError;
 
-                // Luego eliminar la venta
-                const { error: ventaError } = await supabase
-                  .from('ventas')
-                  .delete()
-                  .eq('id', ventaId);
+              // PASO 2: Restaurar el stock de los productos
+              for (const detalle of detallesVenta) {
+                // Obtener el stock actual
+                const { data: productoActual, error: getError } = await supabase
+                  .from('productos')
+                  .select('stock')
+                  .eq('id', detalle.producto_id)
+                  .single();
 
-                if (ventaError) throw ventaError;
+                if (getError) throw getError;
 
-                Alert.alert('Éxito', 'Venta eliminada correctamente');
-                loadVentas();
-              } catch (error) {
-                Alert.alert(
-                  'Error',
-                  'No se pudo eliminar la venta: ' + error.message
-                );
+                // Restaurar el stock
+                const { error: stockError } = await supabase
+                  .from('productos')
+                  .update({
+                    stock: productoActual.stock + detalle.cantidad,
+                  })
+                  .eq('id', detalle.producto_id);
+
+                if (stockError) throw stockError;
               }
-            },
+
+              // PASO 3: Eliminar los detalles de venta
+              const { error: deleteDetallesError } = await supabase
+                .from('detalle_ventas')
+                .delete()
+                .eq('venta_id', ventaId);
+
+              if (deleteDetallesError) throw deleteDetallesError;
+
+              // PASO 4: Eliminar la venta
+              const { error: ventaError } = await supabase
+                .from('ventas')
+                .delete()
+                .eq('id', ventaId);
+
+              if (ventaError) throw ventaError;
+
+              Alert.alert(t('common.success'), t('sales.deleteSuccess'));
+              loadVentas();
+            } catch (error) {
+              Alert.alert(
+                t('common.error'),
+                t('sales.deleteError') + ': ' + error.message
+              );
+            }
           },
-        ]
-      );
+        },
+      ]);
     },
-    [loadVentas]
+    [loadVentas, t]
   );
 
   const formatDate = (dateString) => {
@@ -173,7 +202,7 @@ export default function VentasScreen() {
       <View style={styles.ventaHeader}>
         <View style={styles.ventaInfo}>
           <Text style={[styles.ventaId, { color: colors.text }]}>
-            Venta #{item.id.slice(-8)}
+            {t('sales.title')} #{item.id.slice(-8)}
           </Text>
           <View style={styles.ventaDateContainer}>
             <Calendar size={16} color={colors.textSecondary} />
@@ -246,7 +275,7 @@ export default function VentasScreen() {
           onPress={() => setShowForm(true)}
         >
           <Plus size={20} color="#ffffff" />
-          <Text style={styles.addButtonText}>Nueva Venta</Text>
+          <Text style={styles.addButtonText}>{t('sales.newSale')}</Text>
         </TouchableOpacity>
 
         <View style={styles.statsContainer}>
@@ -264,7 +293,7 @@ export default function VentasScreen() {
               ${totalVentasHoy.toFixed(2)}
             </Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Ventas Hoy
+              {t('sales.todaySales')}
             </Text>
           </View>
           <View
@@ -281,24 +310,22 @@ export default function VentasScreen() {
               {filteredVentas.length}
             </Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Total Ventas
+              {t('sales.totalSales')}
             </Text>
           </View>
         </View>
       </View>
     );
-  }, [ventas, filteredVentas, colors]);
+  }, [ventas, filteredVentas, colors, t]);
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
       <ShoppingCart size={64} color={colors.textTertiary} />
       <Text style={[styles.emptyTitle, { color: colors.text }]}>
-        No hay ventas
+        {t('sales.noSales')}
       </Text>
       <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-        {searchQuery
-          ? 'No se encontraron ventas que coincidan con tu búsqueda'
-          : 'Comienza registrando tu primera venta'}
+        {searchQuery ? t('sales.noSearchResults') : t('sales.firstSaleMessage')}
       </Text>
     </View>
   );
@@ -317,7 +344,9 @@ export default function VentasScreen() {
       >
         <View style={styles.titleContainer}>
           <ShoppingCart size={28} color={colors.primary} />
-          <Text style={[styles.title, { color: colors.text }]}>Ventas</Text>
+          <Text style={[styles.title, { color: colors.text }]}>
+            {t('sales.title')}
+          </Text>
         </View>
 
         <View
@@ -332,7 +361,7 @@ export default function VentasScreen() {
           <Search size={20} color={colors.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Buscar por fecha o producto..."
+            placeholder={t('sales.searchPlaceholder')}
             placeholderTextColor={colors.textTertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -359,7 +388,7 @@ export default function VentasScreen() {
           style={[styles.loadingOverlay, { backgroundColor: colors.overlay }]}
         >
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Cargando ventas...
+            {t('common.loading')}
           </Text>
         </View>
       )}
