@@ -2,61 +2,70 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Package, Plus, Search } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ProductCard from '../../components/ProductCard';
 import ProductForm from '../../components/ProductForm';
+import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../lib/supabase';
 
 export default function ProductsScreen() {
+  const { colors } = useTheme();
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const insets = useSafeAreaInsets();
 
-  useFocusEffect(
-    useCallback(() => {
-      loadProductos();
-    }, [])
-  );
-
-  const loadProductos = async () => {
+  const loadProductos = useCallback(async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('productos')
-        .select(`
+        .select(
+          `
           *,
           categorias (
             id,
             nombre
           )
-        `)
+        `
+        )
         .order('nombre');
-      
+
       if (error) throw error;
-      
-      const productosConCategoria = data.map(producto => ({
+
+      const productosConCategoria = data.map((producto) => ({
         ...producto,
-        categoria_nombre: producto.categorias?.nombre || 'Sin categoría'
+        categoria_nombre: producto.categorias?.nombre || 'Sin categoría',
       }));
-      
+
       setProductos(productosConCategoria);
     } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar los productos');
+      Alert.alert(
+        'Error',
+        'No se pudieron cargar los productos: ' + error.message
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadProductos();
+    }, [loadProductos])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -64,26 +73,32 @@ export default function ProductsScreen() {
     setRefreshing(false);
   };
 
-  const handleEdit = (product) => {
+  const handleEdit = useCallback((product) => {
     setSelectedProduct(product);
     setShowForm(true);
-  };
+  }, []);
 
-  const handleDelete = async (productId) => {
-    try {
-      const { error } = await supabase
-        .from('productos')
-        .delete()
-        .eq('id', productId);
-      
-      if (error) throw error;
-      
-      Alert.alert('Éxito', 'Producto eliminado correctamente');
-      loadProductos();
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo eliminar el producto: ' + error.message);
-    }
-  };
+  const handleDelete = useCallback(
+    async (productId) => {
+      try {
+        const { error } = await supabase
+          .from('productos')
+          .delete()
+          .eq('id', productId);
+
+        if (error) throw error;
+
+        Alert.alert('Éxito', 'Producto eliminado correctamente');
+        loadProductos();
+      } catch (error) {
+        Alert.alert(
+          'Error',
+          'No se pudo eliminar el producto: ' + error.message
+        );
+      }
+    },
+    [loadProductos]
+  );
 
   const handleFormClose = () => {
     setShowForm(false);
@@ -94,69 +109,100 @@ export default function ProductsScreen() {
     loadProductos();
   };
 
-  const filteredProductos = productos.filter(producto =>
-    producto.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    producto.categoria_nombre.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredProductos = productos.filter(
+    (producto) =>
+      producto.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      producto.categoria_nombre
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase())
   );
 
-  const renderProduct = ({ item }) => (
-    <ProductCard
-      product={item}
-      onEdit={handleEdit}
-      onDelete={handleDelete}
-    />
+  const renderProduct = useCallback(
+    ({ item }) => (
+      <ProductCard product={item} onEdit={handleEdit} onDelete={handleDelete} />
+    ),
+    [handleEdit, handleDelete]
   );
 
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <View style={styles.titleContainer}>
-        <Package size={28} color="#2563EB" />
-        <Text style={styles.title}>Productos</Text>
-      </View>
-      
-      <View style={styles.searchContainer}>
-        <Search size={20} color="#6b7280" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar productos..."
-          placeholderTextColor="#9ca3af"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
+  const renderHeader = useCallback(
+    () => (
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => setShowForm(true)}
+        >
+          <Plus size={20} color="#ffffff" />
+          <Text style={styles.addButtonText}>Nuevo Producto</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={() => setShowForm(true)}
-      >
-        <Plus size={20} color="#ffffff" />
-        <Text style={styles.addButtonText}>Nuevo Producto</Text>
-      </TouchableOpacity>
+        <View style={styles.statsContainer}>
+          <Text style={styles.statsText}>
+            Total: {filteredProductos.length} productos
+          </Text>
+          <Text style={styles.lowStockText}>
+            Stock bajo: {filteredProductos.filter((p) => p.stock <= 10).length}{' '}
+            productos
+          </Text>
+        </View>
+      </View>
+    ),
+    [filteredProductos]
+  );
 
-      <View style={styles.statsContainer}>
-        <Text style={styles.statsText}>
-          Total: {filteredProductos.length} productos
+  const renderEmpty = useCallback(
+    () => (
+      <View style={styles.emptyContainer}>
+        <Package size={64} color="#d1d5db" />
+        <Text style={styles.emptyTitle}>No hay productos</Text>
+        <Text style={styles.emptyText}>
+          {searchQuery
+            ? 'No se encontraron productos que coincidan con tu búsqueda'
+            : 'Comienza agregando tu primer producto'}
         </Text>
-        <Text style={styles.lowStockText}>
-          Stock bajo: {filteredProductos.filter(p => p.stock <= 10).length} productos
-        </Text>
       </View>
-    </View>
-  );
-
-  const renderEmpty = () => (
-    <View style={styles.emptyContainer}>
-      <Package size={64} color="#d1d5db" />
-      <Text style={styles.emptyTitle}>No hay productos</Text>
-      <Text style={styles.emptyText}>
-        {searchQuery ? 'No se encontraron productos que coincidan con tu búsqueda' 
-                     : 'Comienza agregando tu primer producto'}
-      </Text>
-    </View>
+    ),
+    [searchQuery]
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.searchSection,
+          {
+            paddingTop: insets.top + 12,
+            backgroundColor: colors.surface,
+            borderBottomColor: colors.border,
+          },
+        ]}
+      >
+        <View style={styles.titleContainer}>
+          <Package size={28} color={colors.secondary} />
+          <Text style={[styles.title, { color: colors.text }]}>Productos</Text>
+        </View>
+
+        <View
+          style={[
+            styles.searchContainer,
+            {
+              backgroundColor: colors.background,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Search size={20} color={colors.textSecondary} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="Buscar productos..."
+            placeholderTextColor={colors.textTertiary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+        </View>
+      </View>
+
       <FlatList
         data={filteredProductos}
         renderItem={renderProduct}
@@ -168,6 +214,12 @@ export default function ProductsScreen() {
         }
         showsVerticalScrollIndicator={false}
       />
+
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <Text style={styles.loadingText}>Cargando productos...</Text>
+        </View>
+      )}
 
       <ProductForm
         visible={showForm}
@@ -184,17 +236,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
-  header: {
+  searchSection: {
     backgroundColor: '#ffffff',
-    padding: 20,
-    marginBottom: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
   },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     marginBottom: 20,
-    marginTop: 20,
   },
   title: {
     fontSize: 28,
@@ -207,7 +260,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
     borderRadius: 12,
     paddingHorizontal: 16,
-    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
@@ -217,6 +269,11 @@ const styles = StyleSheet.create({
     color: '#111827',
     paddingVertical: 12,
     paddingLeft: 12,
+  },
+  header: {
+    backgroundColor: '#ffffff',
+    padding: 20,
+    marginBottom: 8,
   },
   addButton: {
     flexDirection: 'row',
@@ -266,5 +323,20 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(248, 250, 252, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#6b7280',
+    fontWeight: '500',
   },
 });

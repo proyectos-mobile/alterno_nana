@@ -1,15 +1,23 @@
-import { Minus, Plus, Save, ShoppingCart, Trash2, X } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    Modal,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Minus,
+  Plus,
+  Save,
+  ShoppingCart,
+  Trash2,
+  X,
+} from 'lucide-react-native';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Alert,
+  FlatList,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 
 export default function SaleForm({ visible, onClose, onSave }) {
@@ -17,6 +25,32 @@ export default function SaleForm({ visible, onClose, onSave }) {
   const [carritoItems, setCarritoItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const insets = useSafeAreaInsets();
+
+  const loadProductos = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('productos')
+        .select(
+          `
+          *,
+          categorias (
+            nombre
+          )
+        `
+        )
+        .gt('stock', 0)
+        .order('nombre');
+
+      if (error) throw error;
+      setProductos(data || []);
+    } catch (error) {
+      Alert.alert(
+        'Error',
+        'No se pudieron cargar los productos: ' + error.message
+      );
+    }
+  }, []);
 
   useEffect(() => {
     if (visible) {
@@ -24,37 +58,20 @@ export default function SaleForm({ visible, onClose, onSave }) {
       setCarritoItems([]);
       setSearchQuery('');
     }
-  }, [visible]);
+  }, [visible, loadProductos]);
 
-  const loadProductos = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('productos')
-        .select(`
-          *,
-          categorias (
-            nombre
-          )
-        `)
-        .gt('stock', 0)
-        .order('nombre');
-      
-      if (error) throw error;
-      setProductos(data || []);
-    } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar los productos');
-    }
-  };
-
-  const agregarAlCarrito = (producto) => {
-    setCarritoItems(prev => {
-      const existingItem = prev.find(item => item.id === producto.id);
+  const agregarAlCarrito = useCallback((producto) => {
+    setCarritoItems((prev) => {
+      const existingItem = prev.find((item) => item.id === producto.id);
       if (existingItem) {
         if (existingItem.cantidad >= producto.stock) {
-          Alert.alert('Stock insuficiente', `Solo hay ${producto.stock} unidades disponibles`);
+          Alert.alert(
+            'Stock insuficiente',
+            `Solo hay ${producto.stock} unidades disponibles`
+          );
           return prev;
         }
-        return prev.map(item =>
+        return prev.map((item) =>
           item.id === producto.id
             ? { ...item, cantidad: item.cantidad + 1 }
             : item
@@ -63,35 +80,42 @@ export default function SaleForm({ visible, onClose, onSave }) {
         return [...prev, { ...producto, cantidad: 1 }];
       }
     });
-  };
+  }, []);
 
-  const actualizarCantidad = (productoId, nuevaCantidad) => {
-    if (nuevaCantidad <= 0) {
-      eliminarDelCarrito(productoId);
-      return;
-    }
+  const eliminarDelCarrito = useCallback((productoId) => {
+    setCarritoItems((prev) => prev.filter((item) => item.id !== productoId));
+  }, []);
 
-    const producto = productos.find(p => p.id === productoId);
-    if (nuevaCantidad > producto.stock) {
-      Alert.alert('Stock insuficiente', `Solo hay ${producto.stock} unidades disponibles`);
-      return;
-    }
+  const actualizarCantidad = useCallback(
+    (productoId, nuevaCantidad) => {
+      if (nuevaCantidad <= 0) {
+        eliminarDelCarrito(productoId);
+        return;
+      }
 
-    setCarritoItems(prev =>
-      prev.map(item =>
-        item.id === productoId
-          ? { ...item, cantidad: nuevaCantidad }
-          : item
-      )
-    );
-  };
+      const producto = productos.find((p) => p.id === productoId);
+      if (nuevaCantidad > producto.stock) {
+        Alert.alert(
+          'Stock insuficiente',
+          `Solo hay ${producto.stock} unidades disponibles`
+        );
+        return;
+      }
 
-  const eliminarDelCarrito = (productoId) => {
-    setCarritoItems(prev => prev.filter(item => item.id !== productoId));
-  };
+      setCarritoItems((prev) =>
+        prev.map((item) =>
+          item.id === productoId ? { ...item, cantidad: nuevaCantidad } : item
+        )
+      );
+    },
+    [productos, eliminarDelCarrito]
+  );
 
   const calcularTotal = () => {
-    return carritoItems.reduce((total, item) => total + (item.precio * item.cantidad), 0);
+    return carritoItems.reduce(
+      (total, item) => total + item.precio * item.cantidad,
+      0
+    );
   };
 
   const procesarVenta = async () => {
@@ -106,21 +130,23 @@ export default function SaleForm({ visible, onClose, onSave }) {
       // Crear la venta
       const { data: venta, error: ventaError } = await supabase
         .from('ventas')
-        .insert([{
-          fecha: new Date().toISOString().split('T')[0],
-          total: calcularTotal()
-        }])
+        .insert([
+          {
+            fecha: new Date().toISOString().split('T')[0],
+            total: calcularTotal(),
+          },
+        ])
         .select()
         .single();
 
       if (ventaError) throw ventaError;
 
       // Crear los detalles de venta
-      const detalles = carritoItems.map(item => ({
+      const detalles = carritoItems.map((item) => ({
         venta_id: venta.id,
         producto_id: item.id,
         cantidad: item.cantidad,
-        precio_unitario: item.precio
+        precio_unitario: item.precio,
       }));
 
       const { error: detallesError } = await supabase
@@ -149,62 +175,74 @@ export default function SaleForm({ visible, onClose, onSave }) {
     }
   };
 
-  const filteredProductos = productos.filter(producto =>
+  const filteredProductos = productos.filter((producto) =>
     producto.nombre.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const renderProducto = ({ item }) => {
-    const enCarrito = carritoItems.find(carrito => carrito.id === item.id);
-    
-    return (
-      <TouchableOpacity 
-        style={[styles.productCard, enCarrito && styles.productCardSelected]}
-        onPress={() => agregarAlCarrito(item)}
-      >
-        <View style={styles.productInfo}>
-          <Text style={styles.productName}>{item.nombre}</Text>
-          <Text style={styles.productCategory}>{item.categorias?.nombre}</Text>
-          <Text style={styles.productPrice}>${item.precio}</Text>
-          <Text style={styles.productStock}>Stock: {item.stock}</Text>
-        </View>
-        {enCarrito && (
-          <View style={styles.cantidadBadge}>
-            <Text style={styles.cantidadBadgeText}>{enCarrito.cantidad}</Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  };
+  const renderProducto = useCallback(
+    ({ item }) => {
+      const enCarrito = carritoItems.find((carrito) => carrito.id === item.id);
 
-  const renderCarritoItem = ({ item }) => (
-    <View style={styles.carritoItem}>
-      <View style={styles.carritoInfo}>
-        <Text style={styles.carritoName}>{item.nombre}</Text>
-        <Text style={styles.carritoPrice}>${item.precio} x {item.cantidad}</Text>
-        <Text style={styles.carritoSubtotal}>${(item.precio * item.cantidad).toFixed(2)}</Text>
+      return (
+        <TouchableOpacity
+          style={[styles.productCard, enCarrito && styles.productCardSelected]}
+          onPress={() => agregarAlCarrito(item)}
+        >
+          <View style={styles.productInfo}>
+            <Text style={styles.productName}>{item.nombre}</Text>
+            <Text style={styles.productCategory}>
+              {item.categorias?.nombre}
+            </Text>
+            <Text style={styles.productPrice}>${item.precio}</Text>
+            <Text style={styles.productStock}>Stock: {item.stock}</Text>
+          </View>
+          {enCarrito && (
+            <View style={styles.cantidadBadge}>
+              <Text style={styles.cantidadBadgeText}>{enCarrito.cantidad}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      );
+    },
+    [carritoItems, agregarAlCarrito]
+  );
+
+  const renderCarritoItem = useCallback(
+    ({ item }) => (
+      <View style={styles.carritoItem}>
+        <View style={styles.carritoInfo}>
+          <Text style={styles.carritoName}>{item.nombre}</Text>
+          <Text style={styles.carritoPrice}>
+            ${item.precio} x {item.cantidad}
+          </Text>
+          <Text style={styles.carritoSubtotal}>
+            ${(item.precio * item.cantidad).toFixed(2)}
+          </Text>
+        </View>
+        <View style={styles.carritoControls}>
+          <TouchableOpacity
+            style={styles.controlButton}
+            onPress={() => actualizarCantidad(item.id, item.cantidad - 1)}
+          >
+            <Minus size={16} color="#6b7280" />
+          </TouchableOpacity>
+          <Text style={styles.cantidadText}>{item.cantidad}</Text>
+          <TouchableOpacity
+            style={styles.controlButton}
+            onPress={() => actualizarCantidad(item.id, item.cantidad + 1)}
+          >
+            <Plus size={16} color="#6b7280" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => eliminarDelCarrito(item.id)}
+          >
+            <Trash2 size={16} color="#DC2626" />
+          </TouchableOpacity>
+        </View>
       </View>
-      <View style={styles.carritoControls}>
-        <TouchableOpacity 
-          style={styles.controlButton}
-          onPress={() => actualizarCantidad(item.id, item.cantidad - 1)}
-        >
-          <Minus size={16} color="#6b7280" />
-        </TouchableOpacity>
-        <Text style={styles.cantidadText}>{item.cantidad}</Text>
-        <TouchableOpacity 
-          style={styles.controlButton}
-          onPress={() => actualizarCantidad(item.id, item.cantidad + 1)}
-        >
-          <Plus size={16} color="#6b7280" />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.deleteButton}
-          onPress={() => eliminarDelCarrito(item.id)}
-        >
-          <Trash2 size={16} color="#DC2626" />
-        </TouchableOpacity>
-      </View>
-    </View>
+    ),
+    [actualizarCantidad, eliminarDelCarrito]
   );
 
   return (
@@ -215,7 +253,7 @@ export default function SaleForm({ visible, onClose, onSave }) {
       onRequestClose={onClose}
     >
       <View style={styles.container}>
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
           <View style={styles.titleContainer}>
             <ShoppingCart size={24} color="#2563EB" />
             <Text style={styles.title}>Nueva Venta</Text>
@@ -225,8 +263,8 @@ export default function SaleForm({ visible, onClose, onSave }) {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.content}>
-          <View style={styles.productosSection}>
+        <View style={styles.searchSection}>
+          <View style={styles.searchContainer}>
             <Text style={styles.sectionTitle}>Productos Disponibles</Text>
             <TextInput
               style={styles.searchInput}
@@ -234,7 +272,15 @@ export default function SaleForm({ visible, onClose, onSave }) {
               placeholderTextColor="#9ca3af"
               value={searchQuery}
               onChangeText={setSearchQuery}
+              autoCorrect={false}
+              autoCapitalize="none"
+              clearButtonMode="while-editing"
             />
+          </View>
+        </View>
+
+        <View style={styles.content}>
+          <View style={styles.productosSection}>
             <FlatList
               data={filteredProductos}
               renderItem={renderProducto}
@@ -264,16 +310,18 @@ export default function SaleForm({ visible, onClose, onSave }) {
                 </View>
               </>
             ) : (
-              <Text style={styles.carritoEmpty}>
-                El carrito está vacío
-              </Text>
+              <Text style={styles.carritoEmpty}>El carrito está vacío</Text>
             )}
           </View>
         </View>
 
         <View style={styles.footer}>
           <TouchableOpacity
-            style={[styles.ventaButton, (carritoItems.length === 0 || loading) && styles.ventaButtonDisabled]}
+            style={[
+              styles.ventaButton,
+              (carritoItems.length === 0 || loading) &&
+                styles.ventaButtonDisabled,
+            ]}
             onPress={procesarVenta}
             disabled={carritoItems.length === 0 || loading}
           >
@@ -297,7 +345,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
@@ -314,6 +363,16 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 4,
+  },
+  searchSection: {
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  searchContainer: {
+    gap: 16,
   },
   content: {
     flex: 1,

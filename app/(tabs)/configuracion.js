@@ -1,20 +1,34 @@
 import { useFocusEffect } from '@react-navigation/native';
-import { ChartBar as BarChart3, CreditCard as Edit3, Package, Plus, Settings, Tag, Trash2 } from 'lucide-react-native';
+import {
+  ChartBar as BarChart3,
+  CreditCard as Edit3,
+  Moon,
+  Package,
+  Plus,
+  Settings,
+  Smartphone,
+  Sun,
+  Tag,
+  Trash2,
+} from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import CategoryForm from '../../components/CategoryForm';
+import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../lib/supabase';
 
 export default function ConfiguracionScreen() {
+  const { theme, colors, changeTheme } = useTheme();
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -23,69 +37,72 @@ export default function ConfiguracionScreen() {
   const [stats, setStats] = useState({
     totalCategorias: 0,
     totalProductos: 0,
-    totalVentas: 0
+    totalVentas: 0,
   });
 
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, [])
-  );
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      await Promise.all([
-        loadCategorias(),
-        loadStats()
-      ]);
-    } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar los datos');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadCategorias = async () => {
+  const loadCategorias = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('categorias')
-        .select(`
+        .select(
+          `
           *,
-          productos (count)
-        `)
-        .order('nombre');
-      
-      if (error) throw error;
-      
-      const categoriasConConteo = data.map(categoria => ({
-        ...categoria,
-        productosCount: categoria.productos[0]?.count || 0
-      }));
-      
-      setCategorias(categoriasConConteo);
-    } catch (error) {
-      console.error('Error loading categorias:', error);
-    }
-  };
+          productos(count)
+        `
+        )
+        .order('created_at', { ascending: false });
 
-  const loadStats = async () => {
+      if (error) throw error;
+
+      const categoriasWithCount = data.map((categoria) => ({
+        ...categoria,
+        productosCount: categoria.productos.length,
+      }));
+
+      setCategorias(categoriasWithCount);
+    } catch (error) {
+      Alert.alert(
+        'Error',
+        'No se pudieron cargar las categorías: ' + error.message
+      );
+    }
+  }, []);
+
+  const loadStats = useCallback(async () => {
     try {
-      const [categoriasResult, productosResult, ventasResult] = await Promise.all([
-        supabase.from('categorias').select('*', { count: 'exact', head: true }),
-        supabase.from('productos').select('*', { count: 'exact', head: true }),
-        supabase.from('ventas').select('*', { count: 'exact', head: true })
-      ]);
+      const [categoriasResult, productosResult, ventasResult] =
+        await Promise.all([
+          supabase.from('categorias').select('id', { count: 'exact' }),
+          supabase.from('productos').select('id', { count: 'exact' }),
+          supabase.from('ventas').select('id', { count: 'exact' }),
+        ]);
 
       setStats({
         totalCategorias: categoriasResult.count || 0,
         totalProductos: productosResult.count || 0,
-        totalVentas: ventasResult.count || 0
+        totalVentas: ventasResult.count || 0,
       });
     } catch (error) {
       console.error('Error loading stats:', error);
     }
-  };
+  }, []);
+
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      await Promise.all([loadCategorias(), loadStats()]);
+    } catch (error) {
+      Alert.alert('Error', 'No se pudieron cargar los datos: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [loadCategorias, loadStats]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -124,13 +141,16 @@ export default function ConfiguracionScreen() {
                 .from('categorias')
                 .delete()
                 .eq('id', categoryId);
-              
+
               if (error) throw error;
-              
+
               Alert.alert('Éxito', 'Categoría eliminada correctamente');
               loadData();
             } catch (error) {
-              Alert.alert('Error', 'No se pudo eliminar la categoría: ' + error.message);
+              Alert.alert(
+                'Error',
+                'No se pudo eliminar la categoría: ' + error.message
+              );
             }
           },
         },
@@ -147,47 +167,165 @@ export default function ConfiguracionScreen() {
     loadData();
   };
 
+  const renderThemeSection = () => (
+    <View style={[styles.section, { backgroundColor: colors.surface }]}>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          Tema de la Aplicación
+        </Text>
+      </View>
+
+      <View style={styles.themeOptions}>
+        <TouchableOpacity
+          style={[
+            styles.themeOption,
+            { backgroundColor: colors.background, borderColor: colors.border },
+            theme === 'light' && {
+              borderColor: colors.primary,
+              borderWidth: 2,
+            },
+          ]}
+          onPress={() => changeTheme('light')}
+        >
+          <Sun size={24} color={colors.text} />
+          <Text style={[styles.themeOptionText, { color: colors.text }]}>
+            Claro
+          </Text>
+          {theme === 'light' && (
+            <View
+              style={[styles.themeCheck, { backgroundColor: colors.primary }]}
+            >
+              <Text style={styles.themeCheckText}>✓</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.themeOption,
+            { backgroundColor: colors.background, borderColor: colors.border },
+            theme === 'dark' && { borderColor: colors.primary, borderWidth: 2 },
+          ]}
+          onPress={() => changeTheme('dark')}
+        >
+          <Moon size={24} color={colors.text} />
+          <Text style={[styles.themeOptionText, { color: colors.text }]}>
+            Oscuro
+          </Text>
+          {theme === 'dark' && (
+            <View
+              style={[styles.themeCheck, { backgroundColor: colors.primary }]}
+            >
+              <Text style={styles.themeCheckText}>✓</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.themeOption,
+            { backgroundColor: colors.background, borderColor: colors.border },
+            theme === 'system' && {
+              borderColor: colors.primary,
+              borderWidth: 2,
+            },
+          ]}
+          onPress={() => changeTheme('system')}
+        >
+          <Smartphone size={24} color={colors.text} />
+          <Text style={[styles.themeOptionText, { color: colors.text }]}>
+            Sistema
+          </Text>
+          {theme === 'system' && (
+            <View
+              style={[styles.themeCheck, { backgroundColor: colors.primary }]}
+            >
+              <Text style={styles.themeCheckText}>✓</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <Text style={[styles.themeDescription, { color: colors.textSecondary }]}>
+        {theme === 'system'
+          ? 'Se adapta automáticamente al tema de tu dispositivo'
+          : `Tema ${theme === 'light' ? 'claro' : 'oscuro'} seleccionado`}
+      </Text>
+    </View>
+  );
+
   const renderStatsCard = () => (
-    <View style={styles.statsCard}>
-      <Text style={styles.statsTitle}>Resumen General</Text>
+    <View style={[styles.statsCard, { backgroundColor: colors.surface }]}>
+      <Text style={[styles.statsTitle, { color: colors.text }]}>
+        Resumen General
+      </Text>
       <View style={styles.statsGrid}>
         <View style={styles.statItem}>
           <Tag size={24} color="#7C3AED" />
-          <Text style={styles.statValue}>{stats.totalCategorias}</Text>
-          <Text style={styles.statLabel}>Categorías</Text>
+          <Text style={[styles.statValue, { color: colors.text }]}>
+            {stats.totalCategorias}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            Categorías
+          </Text>
         </View>
         <View style={styles.statItem}>
           <Package size={24} color="#2563EB" />
-          <Text style={styles.statValue}>{stats.totalProductos}</Text>
-          <Text style={styles.statLabel}>Productos</Text>
+          <Text style={[styles.statValue, { color: colors.text }]}>
+            {stats.totalProductos}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            Productos
+          </Text>
         </View>
         <View style={styles.statItem}>
           <BarChart3 size={24} color="#059669" />
-          <Text style={styles.statValue}>{stats.totalVentas}</Text>
-          <Text style={styles.statLabel}>Ventas</Text>
+          <Text style={[styles.statValue, { color: colors.text }]}>
+            {stats.totalVentas}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            Ventas
+          </Text>
         </View>
       </View>
     </View>
   );
 
   const renderCategoryItem = ({ item }) => (
-    <View style={styles.categoryCard}>
+    <View
+      style={[
+        styles.categoryCard,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+    >
       <View style={styles.categoryInfo}>
-        <Text style={styles.categoryName}>{item.nombre}</Text>
-        <Text style={styles.categoryDescription}>{item.descripcion}</Text>
-        <Text style={styles.categoryCount}>
+        <Text style={[styles.categoryName, { color: colors.text }]}>
+          {item.nombre}
+        </Text>
+        <Text
+          style={[styles.categoryDescription, { color: colors.textSecondary }]}
+        >
+          {item.descripcion}
+        </Text>
+        <Text style={[styles.categoryCount, { color: colors.textTertiary }]}>
           {item.productosCount} producto{item.productosCount !== 1 ? 's' : ''}
         </Text>
       </View>
       <View style={styles.categoryActions}>
-        <TouchableOpacity 
-          style={styles.actionButton} 
+        <TouchableOpacity
+          style={[
+            styles.actionButton,
+            { backgroundColor: colors.background, borderColor: colors.border },
+          ]}
           onPress={() => handleEditCategory(item)}
         >
           <Edit3 size={16} color="#059669" />
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.actionButton} 
+        <TouchableOpacity
+          style={[
+            styles.actionButton,
+            { backgroundColor: colors.background, borderColor: colors.border },
+          ]}
           onPress={() => handleDeleteCategory(item.id, item.productosCount)}
         >
           <Trash2 size={16} color="#DC2626" />
@@ -197,18 +335,20 @@ export default function ConfiguracionScreen() {
   );
 
   const renderCategoriesSection = () => (
-    <View style={styles.section}>
+    <View style={[styles.section, { backgroundColor: colors.surface }]}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Gestión de Categorías</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          Gestión de Categorías
+        </Text>
         <TouchableOpacity
-          style={styles.addButton}
+          style={[styles.addButton, { backgroundColor: colors.primary }]}
           onPress={() => setShowCategoryForm(true)}
         >
           <Plus size={16} color="#ffffff" />
           <Text style={styles.addButtonText}>Nueva</Text>
         </TouchableOpacity>
       </View>
-      
+
       {categorias.length > 0 ? (
         <FlatList
           data={categorias}
@@ -219,9 +359,11 @@ export default function ConfiguracionScreen() {
         />
       ) : (
         <View style={styles.emptyContainer}>
-          <Tag size={48} color="#d1d5db" />
-          <Text style={styles.emptyTitle}>No hay categorías</Text>
-          <Text style={styles.emptyText}>
+          <Tag size={48} color={colors.textTertiary} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            No hay categorías
+          </Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
             Comienza creando tu primera categoría
           </Text>
         </View>
@@ -230,27 +372,39 @@ export default function ConfiguracionScreen() {
   );
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <View style={styles.titleContainer}>
-            <Settings size={28} color="#6B46C1" />
-            <Text style={styles.title}>Configuración</Text>
-          </View>
-          <Text style={styles.subtitle}>
-            Gestiona categorías y configuraciones del sistema
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.text }]}>
+            Cargando configuración...
           </Text>
         </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.header, { backgroundColor: colors.surface }]}>
+            <View style={styles.titleContainer}>
+              <Settings size={28} color="#6B46C1" />
+              <Text style={[styles.title, { color: colors.text }]}>
+                Configuración
+              </Text>
+            </View>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              Gestiona categorías y configuraciones del sistema
+            </Text>
+          </View>
 
-        {renderStatsCard()}
-        {renderCategoriesSection()}
-      </ScrollView>
+          {renderStatsCard()}
+          {renderThemeSection()}
+          {renderCategoriesSection()}
+        </ScrollView>
+      )}
 
       <CategoryForm
         visible={showCategoryForm}
@@ -265,13 +419,21 @@ export default function ConfiguracionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
   scrollView: {
     flex: 1,
   },
   header: {
-    backgroundColor: '#ffffff',
     padding: 20,
     marginBottom: 8,
   },
@@ -285,33 +447,86 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#111827',
   },
   subtitle: {
     fontSize: 16,
-    color: '#6b7280',
   },
-  statsCard: {
-    backgroundColor: '#ffffff',
+  section: {
     borderRadius: 12,
     padding: 20,
     marginHorizontal: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  addButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  themeOptions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  themeOption: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#f3f4f6',
+    position: 'relative',
+  },
+  themeOptionText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 8,
+  },
+  themeCheck: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  themeCheckText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  themeDescription: {
+    fontSize: 14,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  statsCard: {
+    borderRadius: 12,
+    padding: 20,
+    marginHorizontal: 16,
+    marginBottom: 16,
   },
   statsTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
     marginBottom: 16,
   },
   statsGrid: {
@@ -324,63 +539,20 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#111827',
     marginTop: 8,
   },
   statLabel: {
     fontSize: 12,
-    color: '#6b7280',
     marginTop: 4,
-  },
-  section: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    margin: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: '#f3f4f6',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#7C3AED',
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 4,
-  },
-  addButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '500',
   },
   categoryCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
   },
   categoryInfo: {
     flex: 1,
@@ -388,17 +560,14 @@ const styles = StyleSheet.create({
   categoryName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
+    marginBottom: 4,
   },
   categoryDescription: {
     fontSize: 14,
-    color: '#6b7280',
-    marginTop: 4,
+    marginBottom: 4,
   },
   categoryCount: {
     fontSize: 12,
-    color: '#9ca3af',
-    marginTop: 4,
   },
   categoryActions: {
     flexDirection: 'row',
@@ -407,24 +576,21 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: 8,
     borderRadius: 6,
-    backgroundColor: '#f9fafb',
+    borderWidth: 1,
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 40,
-    paddingHorizontal: 20,
   },
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#374151',
     marginTop: 16,
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 14,
-    color: '#6b7280',
     textAlign: 'center',
     lineHeight: 20,
   },
