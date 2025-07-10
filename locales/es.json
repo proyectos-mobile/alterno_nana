@@ -1,6 +1,7 @@
 {
   "common": {
     "save": "Guardar",
+    "saving": "Guardando...",
     "cancel": "Cancelar",
     "delete": "Eliminar",
     "edit": "Editar",
@@ -154,6 +155,45 @@
     "lowStockCount": "Con Stock Bajo",
     "deletedProduct": "Producto eliminado"
   },
+  "auth": {
+    "loginTitle": "Iniciar Sesión",
+    "registerTitle": "Registrar Papelería",
+    "loginSubtitle": "Accede a tu papelería",
+    "registerSubtitle": "Crea una nueva cuenta para tu papelería",
+    "email": "Email",
+    "emailPlaceholder": "tu@email.com",
+    "tenantSlugLogin": "Papelería",
+    "tenantSlugRegister": "Identificador de la Papelería",
+    "tenantSlugPlaceholderLogin": "nana",
+    "tenantSlugPlaceholderRegister": "donjose",
+    "tenantSlugHelper": "Solo letras y números, sin espacios. Será tu identificador único.",
+    "tenantName": "Nombre de la Papelería",
+    "tenantNamePlaceholder": "Ej: Papelería Don José",
+    "adminName": "Nombre del Administrador",
+    "adminNamePlaceholder": "Tu nombre completo",
+    "phone": "Teléfono",
+    "phonePlaceholder": "+57 300 123 4567",
+    "address": "Dirección",
+    "addressPlaceholder": "Dirección de la papelería",
+    "required": "*",
+    "loginButton": "Iniciar Sesión",
+    "registerButton": "Registrar Papelería",
+    "loggingIn": "Iniciando sesión...",
+    "registering": "Registrando...",
+    "toggleToRegister": "¿Papelería nueva? Regístrate aquí",
+    "toggleToLogin": "¿Ya tienes una papelería? Inicia sesión",
+    "demoTitle": "Demo",
+    "demoText": "Toca aquí para usar la papelería de demostración:",
+    "demoHint": "👆 Toca para auto-completar",
+    "demoDataFilled": "✅ Datos completados",
+    "demoDataFilledMessage": "Se han llenado los campos con los datos de demostración. ¡Ya puedes iniciar sesión!",
+    "demoUnderstood": "Entendido",
+    "errorTitle": "Error",
+    "completeAllFields": "Por favor completa todos los campos",
+    "completeRequiredFields": "Por favor completa todos los campos obligatorios",
+    "lightMode": "Modo Claro",
+    "darkMode": "Modo Oscuro"
+  },
   "settings": {
     "title": "Configuración",
     "subtitle": "Gestiona categorías y configuraciones del sistema",
@@ -185,6 +225,11 @@
     "deleteError": "No se pudo eliminar la categoría",
     "themeSystemDescription": "Se adapta automáticamente al tema de tu dispositivo",
     "themeLightSelected": "Tema claro seleccionado",
-    "themeDarkSelected": "Tema oscuro seleccionado"
+    "themeDarkSelected": "Tema oscuro seleccionado",
+    "storeInfo": "Información de la Papelería",
+    "admin": "Administrador",
+    "employee": "Empleado",
+    "logout": "Cerrar Sesión",
+    "logoutConfirmation": "¿Estás seguro de que deseas cerrar sesión?"
   }
 }

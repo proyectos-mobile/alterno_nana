@@ -33,11 +33,15 @@ export const ThemeProvider = ({ children }) => {
           setIsDark(savedTheme === 'dark');
         }
       } else {
-        // Por defecto usar tema del sistema
+        // Por defecto usar tema del sistema y guardarlo como preferencia
+        const systemTheme = 'system';
+        await AsyncStorage.setItem('theme', systemTheme);
+        setTheme(systemTheme);
         setIsDark(Appearance.getColorScheme() === 'dark');
       }
     } catch (error) {
       console.error('Error loading theme preference:', error);
+      setTheme('system');
       setIsDark(Appearance.getColorScheme() === 'dark');
     }
   }, []);

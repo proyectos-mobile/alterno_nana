@@ -9,7 +9,6 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Alert,
   FlatList,
   Modal,
   StyleSheet,
@@ -18,43 +17,34 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
-import { supabase } from '../lib/supabase';
+import { useSupabaseTenant } from '../hooks/useSupabaseTenant';
+import { CustomAlert } from './CustomAlert';
 
 export default function SaleForm({ visible, onClose, onSave }) {
   const { colors } = useTheme();
   const { t } = useTranslation();
+  const { getProductos, insertVenta } = useSupabaseTenant();
   const [productos, setProductos] = useState([]);
   const [carritoItems, setCarritoItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const insets = useSafeAreaInsets();
 
   const loadProductos = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('productos')
-        .select(
-          `
-          *,
-          categorias (
-            nombre
-          )
-        `
-        )
-        .gt('stock', 0)
-        .order('nombre');
+      const { data, error } = await getProductos();
 
       if (error) throw error;
       setProductos(data || []);
     } catch (error) {
-      Alert.alert(
+      CustomAlert.alert(
         t('common.error'),
-        t('products.loadError') + ': ' + error.message
+        `${t('products.loadError')}: ${error.message}`,
+        [],
+        'error'
       );
     }
-  }, [t]);
+  }, [getProductos, t]);
 
   useEffect(() => {
     if (visible) {
@@ -70,9 +60,11 @@ export default function SaleForm({ visible, onClose, onSave }) {
         const existingItem = prev.find((item) => item.id === producto.id);
         if (existingItem) {
           if (existingItem.cantidad >= producto.stock) {
-            Alert.alert(
+            CustomAlert.alert(
               t('saleForm.insufficientStock'),
-              t('saleForm.onlyAvailable', { stock: producto.stock })
+              t('saleForm.onlyAvailable', { stock: producto.stock }),
+              [],
+              'warning'
             );
             return prev;
           }
@@ -102,9 +94,11 @@ export default function SaleForm({ visible, onClose, onSave }) {
 
       const producto = productos.find((p) => p.id === productoId);
       if (nuevaCantidad > producto.stock) {
-        Alert.alert(
+        CustomAlert.alert(
           'Stock insuficiente',
-          `Solo hay ${producto.stock} unidades disponibles`
+          `Solo hay ${producto.stock} unidades disponibles`,
+          [],
+          'warning'
         );
         return;
       }
@@ -127,58 +121,50 @@ export default function SaleForm({ visible, onClose, onSave }) {
 
   const procesarVenta = async () => {
     if (carritoItems.length === 0) {
-      Alert.alert(t('common.error'), t('saleForm.addAtLeastOne'));
+      CustomAlert.alert(
+        t('common.error'),
+        t('saleForm.addAtLeastOne'),
+        [],
+        'error'
+      );
       return;
     }
 
     setLoading(true);
 
     try {
-      // Crear la venta
-      const { data: venta, error: ventaError } = await supabase
-        .from('ventas')
-        .insert([
-          {
-            fecha: new Date().toISOString().split('T')[0],
-            total: calcularTotal(),
-          },
-        ])
-        .select()
-        .single();
+      // Preparar datos de la venta
+      const ventaData = {
+        fecha: new Date().toISOString().split('T')[0],
+        total: calcularTotal(),
+      };
 
-      if (ventaError) throw ventaError;
-
-      // Crear los detalles de venta
-      const detalles = carritoItems.map((item) => ({
-        venta_id: venta.id,
-        producto_id: item.id,
+      // Preparar productos del carrito
+      const productosVenta = carritoItems.map((item) => ({
+        id: item.id,
         cantidad: item.cantidad,
-        precio_unitario: item.precio,
+        precio: item.precio,
       }));
 
-      const { error: detallesError } = await supabase
-        .from('detalle_ventas')
-        .insert(detalles);
+      // Usar la función insertVenta del hook
+      const { error } = await insertVenta(ventaData, productosVenta);
 
-      if (detallesError) throw detallesError;
+      if (error) throw error;
 
-      // Actualizar stock de productos
-      for (const item of carritoItems) {
-        const { error: stockError } = await supabase
-          .from('productos')
-          .update({ stock: item.stock - item.cantidad })
-          .eq('id', item.id);
-
-        if (stockError) throw stockError;
-      }
-
-      Alert.alert(t('common.success'), t('sales.processSuccess'));
+      CustomAlert.alert(
+        t('common.success'),
+        t('sales.processSuccess'),
+        [],
+        'success'
+      );
       onSave();
       onClose();
     } catch (error) {
-      Alert.alert(
+      CustomAlert.alert(
         t('common.error'),
-        t('sales.processError') + ': ' + error.message
+        `${t('sales.processError')}: ${error.message}`,
+        [],
+        'error'
       );
     } finally {
       setLoading(false);
@@ -300,7 +286,6 @@ export default function SaleForm({ visible, onClose, onSave }) {
           style={[
             styles.header,
             {
-              paddingTop: insets.top + 4,
               backgroundColor: colors.surface,
               borderBottomColor: colors.border,
             },
@@ -440,8 +425,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    padding: 20,
     borderBottomWidth: 1,
   },
   titleContainer: {
@@ -458,11 +442,12 @@ const styles = StyleSheet.create({
   },
   searchSection: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
   },
   searchContainer: {
-    gap: 16,
+    gap: 12,
   },
   content: {
     flex: 1,
@@ -480,7 +465,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   searchInput: {
     borderWidth: 1,

@@ -3,14 +3,17 @@ import {
   ChartBar as BarChart3,
   CreditCard as Edit3,
   Globe,
+  LogOut,
   Moon,
   Package,
   Plus,
   Settings,
   Smartphone,
+  Store,
   Sun,
   Tag,
   Trash2,
+  User,
 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,13 +29,15 @@ import {
   View,
 } from 'react-native';
 import CategoryForm from '../../components/CategoryForm';
+import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { supabase } from '../../lib/supabase';
+import { useSupabaseTenant } from '../../hooks/useSupabaseTenant';
 
 export default function ConfiguracionScreen() {
   const { theme, colors, changeTheme } = useTheme();
   const { currentLanguage, changeLanguage, availableLanguages } = useLanguage();
+  const { user, tenant, logout, isAdmin } = useAuth();
   const { t } = useTranslation();
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,53 +49,43 @@ export default function ConfiguracionScreen() {
     totalProductos: 0,
     totalVentas: 0,
   });
+  const { getCategorias, getProductos, getVentas, deleteCategoria } =
+    useSupabaseTenant();
 
   const loadCategorias = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('categorias')
-        .select(
-          `
-          *,
-          productos(count)
-        `
-        )
-        .order('created_at', { ascending: false });
+      const { data, error } = await getCategorias();
 
       if (error) throw error;
 
-      const categoriasWithCount = data.map((categoria) => ({
+      const categoriasWithCount = (data || []).map((categoria) => ({
         ...categoria,
-        productosCount: categoria.productos.length,
+        productosCount: categoria.productos?.length || 0,
       }));
 
       setCategorias(categoriasWithCount);
     } catch (error) {
       Alert.alert(
         t('common.error'),
-        t('settings.loadCategoriesError') + ': ' + error.message
+        `${t('settings.loadCategoriesError')}: ${error.message}`
       );
     }
-  }, [t]);
+  }, [getCategorias, t]);
 
   const loadStats = useCallback(async () => {
     try {
       const [categoriasResult, productosResult, ventasResult] =
-        await Promise.all([
-          supabase.from('categorias').select('id', { count: 'exact' }),
-          supabase.from('productos').select('id', { count: 'exact' }),
-          supabase.from('ventas').select('id', { count: 'exact' }),
-        ]);
+        await Promise.all([getCategorias(), getProductos(), getVentas()]);
 
       setStats({
-        totalCategorias: categoriasResult.count || 0,
-        totalProductos: productosResult.count || 0,
-        totalVentas: ventasResult.count || 0,
+        totalCategorias: categoriasResult.data?.length || 0,
+        totalProductos: productosResult.data?.length || 0,
+        totalVentas: ventasResult.data?.length || 0,
       });
     } catch (error) {
       console.error('Error loading stats:', error);
     }
-  }, []);
+  }, [getCategorias, getProductos, getVentas]);
 
   const loadData = useCallback(async () => {
     try {
@@ -99,7 +94,7 @@ export default function ConfiguracionScreen() {
     } catch (error) {
       Alert.alert(
         t('common.error'),
-        t('settings.loadError') + ': ' + error.message
+        `${t('settings.loadError')}: ${error.message}`
       );
     } finally {
       setLoading(false);
@@ -145,10 +140,7 @@ export default function ConfiguracionScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const { error } = await supabase
-                .from('categorias')
-                .delete()
-                .eq('id', categoryId);
+              const { error } = await deleteCategoria(categoryId);
 
               if (error) throw error;
 
@@ -157,7 +149,7 @@ export default function ConfiguracionScreen() {
             } catch (error) {
               Alert.alert(
                 t('common.error'),
-                t('settings.deleteError') + ': ' + error.message
+                `${t('settings.deleteError')}: ${error.message}`
               );
             }
           },
@@ -291,7 +283,9 @@ export default function ConfiguracionScreen() {
           >
             <Globe size={24} color={colors.text} />
             <Text style={[styles.themeOptionText, { color: colors.text }]}>
-              {t(`settings.${language.code === 'es' ? 'spanish' : 'english'}`)}
+              {t(
+                language.code === 'es' ? 'settings.spanish' : 'settings.english'
+              )}
             </Text>
             {currentLanguage === language.code && (
               <View
@@ -309,6 +303,72 @@ export default function ConfiguracionScreen() {
           ? t('settings.currentLanguageSpanish')
           : t('settings.currentLanguageEnglish')}
       </Text>
+    </View>
+  );
+
+  const handleLogout = () => {
+    Alert.alert(t('settings.logout'), t('settings.logoutConfirmation'), [
+      {
+        text: t('common.cancel'),
+        style: 'cancel',
+      },
+      {
+        text: t('settings.logout'),
+        style: 'destructive',
+        onPress: async () => {
+          await logout();
+        },
+      },
+    ]);
+  };
+
+  const renderTenantInfo = () => (
+    <View style={[styles.section, { backgroundColor: colors.surface }]}>
+      <View style={styles.sectionHeader}>
+        <Store size={24} color="#10B981" />
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          {t('settings.storeInfo')}
+        </Text>
+      </View>
+
+      <View style={styles.tenantInfoContainer}>
+        <View style={styles.tenantInfo}>
+          <Text style={[styles.tenantName, { color: colors.text }]}>
+            {tenant?.nombre || 'Papelería'}
+          </Text>
+          <Text style={[styles.tenantDetails, { color: colors.textSecondary }]}>
+            ID: {tenant?.slug || 'N/A'}
+          </Text>
+          {tenant?.direccion && (
+            <Text
+              style={[styles.tenantDetails, { color: colors.textSecondary }]}
+            >
+              {tenant.direccion}
+            </Text>
+          )}
+        </View>
+
+        <View style={styles.userInfo}>
+          <User size={16} color={colors.textSecondary} />
+          <Text style={[styles.userName, { color: colors.textSecondary }]}>
+            {user?.nombre || 'Usuario'}
+          </Text>
+          <Text style={[styles.userRole, { color: colors.primary }]}>
+            {isAdmin() ? t('settings.admin') : t('settings.employee')}
+          </Text>
+        </View>
+      </View>
+
+      <TouchableOpacity
+        style={[
+          styles.logoutButton,
+          { backgroundColor: colors.error || '#EF4444' },
+        ]}
+        onPress={handleLogout}
+      >
+        <LogOut size={20} color="#FFFFFF" />
+        <Text style={styles.logoutButtonText}>{t('settings.logout')}</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -461,6 +521,7 @@ export default function ConfiguracionScreen() {
             </Text>
           </View>
 
+          {renderTenantInfo()}
           {renderStatsCard()}
           {renderThemeSection()}
           {renderLanguageSection()}
@@ -655,5 +716,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  tenantInfoContainer: {
+    gap: 16,
+  },
+  tenantInfo: {
+    gap: 4,
+  },
+  tenantName: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  tenantDetails: {
+    fontSize: 14,
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  userName: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  userRole: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  logoutButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

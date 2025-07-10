@@ -11,10 +11,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { supabase } from '../lib/supabase';
+import { useTheme } from '../contexts/ThemeContext';
+import { useSupabaseTenant } from '../hooks/useSupabaseTenant';
 
 export default function ProductForm({ visible, onClose, product, onSave }) {
   const { t } = useTranslation();
+  const { colors } = useTheme();
   const [formData, setFormData] = useState({
     nombre: '',
     precio: '',
@@ -24,20 +26,19 @@ export default function ProductForm({ visible, onClose, product, onSave }) {
   });
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(false);
+  const { getCategorias, insertProducto, updateProducto } = useSupabaseTenant();
+  const styles = createStyles(colors);
 
   const loadCategorias = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('categorias')
-        .select('*')
-        .order('nombre');
+      const { data, error } = await getCategorias();
 
       if (error) throw error;
       setCategorias(data || []);
     } catch {
       Alert.alert(t('common.error'), t('productForm.loadCategoriesError'));
     }
-  }, [t]);
+  }, [t, getCategorias]);
 
   useEffect(() => {
     if (visible) {
@@ -96,16 +97,9 @@ export default function ProductForm({ visible, onClose, product, onSave }) {
 
       let result;
       if (product) {
-        result = await supabase
-          .from('productos')
-          .update(productData)
-          .eq('id', product.id)
-          .select();
+        result = await updateProducto(product.id, productData);
       } else {
-        result = await supabase
-          .from('productos')
-          .insert([productData])
-          .select();
+        result = await insertProducto(productData);
       }
 
       if (result.error) throw result.error;
@@ -121,7 +115,7 @@ export default function ProductForm({ visible, onClose, product, onSave }) {
     } catch (error) {
       Alert.alert(
         t('common.error'),
-        t('productForm.createError') + ': ' + error.message
+        `${t('productForm.createError')}: ${error.message}`
       );
     } finally {
       setLoading(false);
@@ -138,7 +132,7 @@ export default function ProductForm({ visible, onClose, product, onSave }) {
       <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.titleContainer}>
-            <Package size={24} color="#2563EB" />
+            <Package size={24} color={colors.primary} />
             <Text style={styles.title}>
               {product
                 ? t('productForm.editProduct')
@@ -146,7 +140,7 @@ export default function ProductForm({ visible, onClose, product, onSave }) {
             </Text>
           </View>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <X size={24} color="#6b7280" />
+            <X size={24} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -261,105 +255,106 @@ export default function ProductForm({ visible, onClose, product, onSave }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  form: {
-    flex: 1,
-    padding: 20,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#ffffff',
-    color: '#111827',
-  },
-  textArea: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  categoryContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  categoryButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#ffffff',
-  },
-  categoryButtonSelected: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
-  },
-  categoryButtonText: {
-    fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '500',
-  },
-  categoryButtonTextSelected: {
-    color: '#ffffff',
-  },
-  footer: {
-    padding: 20,
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-  },
-  saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2563EB',
-    borderRadius: 8,
-    padding: 16,
-    gap: 8,
-  },
-  saveButtonDisabled: {
-    backgroundColor: '#9ca3af',
-  },
-  saveButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
+const createStyles = (colors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 20,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    titleContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    title: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    closeButton: {
+      padding: 4,
+    },
+    form: {
+      flex: 1,
+      padding: 20,
+    },
+    inputGroup: {
+      marginBottom: 20,
+    },
+    label: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      backgroundColor: colors.surface,
+      color: colors.text,
+    },
+    textArea: {
+      height: 80,
+      textAlignVertical: 'top',
+    },
+    categoryContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    categoryButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    categoryButtonSelected: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    categoryButtonText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      fontWeight: '500',
+    },
+    categoryButtonTextSelected: {
+      color: '#ffffff',
+    },
+    footer: {
+      padding: 20,
+      backgroundColor: colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    saveButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primary,
+      borderRadius: 8,
+      padding: 16,
+      gap: 8,
+    },
+    saveButtonDisabled: {
+      backgroundColor: colors.textSecondary,
+    },
+    saveButtonText: {
+      color: '#ffffff',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  });

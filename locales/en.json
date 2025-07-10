@@ -1,6 +1,7 @@
 {
   "common": {
     "save": "Save",
+    "saving": "Saving...",
     "cancel": "Cancel",
     "delete": "Delete",
     "edit": "Edit",
@@ -154,6 +155,45 @@
     "lowStockCount": "Low Stock Count",
     "deletedProduct": "Deleted product"
   },
+  "auth": {
+    "loginTitle": "Log In",
+    "registerTitle": "Register Stationery Store",
+    "loginSubtitle": "Access your stationery store",
+    "registerSubtitle": "Create a new account for your stationery store",
+    "email": "Email",
+    "emailPlaceholder": "you@email.com",
+    "tenantSlugLogin": "Store",
+    "tenantSlugRegister": "Store Identifier",
+    "tenantSlugPlaceholderLogin": "nana",
+    "tenantSlugPlaceholderRegister": "donjose",
+    "tenantSlugHelper": "Only letters and numbers, no spaces. This will be your unique identifier.",
+    "tenantName": "Store Name",
+    "tenantNamePlaceholder": "e.g.: Don José Stationery",
+    "adminName": "Administrator Name",
+    "adminNamePlaceholder": "Your full name",
+    "phone": "Phone",
+    "phonePlaceholder": "+1 300 123 4567",
+    "address": "Address",
+    "addressPlaceholder": "Store address",
+    "required": "*",
+    "loginButton": "Log In",
+    "registerButton": "Register Store",
+    "loggingIn": "Logging in...",
+    "registering": "Registering...",
+    "toggleToRegister": "New store? Register here",
+    "toggleToLogin": "Already have a store? Log in",
+    "demoTitle": "Demo",
+    "demoText": "Tap here to use the demo stationery store:",
+    "demoHint": "👆 Tap to auto-complete",
+    "demoDataFilled": "✅ Data completed",
+    "demoDataFilledMessage": "The fields have been filled with demo data. You can now log in!",
+    "demoUnderstood": "Got it",
+    "errorTitle": "Error",
+    "completeAllFields": "Please complete all fields",
+    "completeRequiredFields": "Please complete all required fields",
+    "lightMode": "Light Mode",
+    "darkMode": "Dark Mode"
+  },
   "settings": {
     "title": "Settings",
     "subtitle": "Manage categories and system settings",
@@ -185,6 +225,11 @@
     "deleteError": "Could not delete category",
     "themeSystemDescription": "Automatically adapts to your device's theme",
     "themeLightSelected": "Light theme selected",
-    "themeDarkSelected": "Dark theme selected"
+    "themeDarkSelected": "Dark theme selected",
+    "storeInfo": "Store Information",
+    "admin": "Administrator",
+    "employee": "Employee",
+    "logout": "Log Out",
+    "logoutConfirmation": "Are you sure you want to log out?"
   }
 }
