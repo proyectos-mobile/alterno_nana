@@ -215,6 +215,7 @@ CREATE OR REPLACE FUNCTION get_current_tenant_id()
 RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   tenant_uuid uuid;
@@ -239,6 +240,7 @@ CREATE OR REPLACE FUNCTION create_new_tenant(
 RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   new_tenant_id uuid;
@@ -281,12 +283,16 @@ $$;
 
 -- Función trigger para actualizar updated_at en tenants
 CREATE OR REPLACE FUNCTION update_tenant_updated_at()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER 
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   NEW.updated_at = now();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Trigger para tenants
 CREATE TRIGGER trigger_update_tenant_updated_at

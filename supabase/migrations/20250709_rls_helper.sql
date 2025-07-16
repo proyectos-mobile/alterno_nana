@@ -10,6 +10,7 @@ CREATE OR REPLACE FUNCTION set_current_user_email(email text)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   -- Establecer el email en la configuración de la sesión
